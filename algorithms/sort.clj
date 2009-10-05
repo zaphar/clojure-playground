@@ -18,7 +18,10 @@
    (if (> j (count s)) s
      (let [hseq (take j s) tseq (drop (inc j) s) k (nth s j)]
        (let [new-seq (concat (splice-with k (fn [i] (pred k i)) hseq) tseq)]
-         (println "head seq: " hseq "key: " k "tail seq: " tseq)
          (if (empty? tseq) new-seq
            (recur (inc j) pred new-seq))))))
+
+; benchmarking code
+(defn time-insertion-sort [n]
+   (time (insertion-sort 1 >= (take n (repeatedly (fn [] (rand-int 100)))))))
 
