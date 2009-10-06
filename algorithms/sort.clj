@@ -55,11 +55,20 @@
             (merge-seq pred new-lst1 new-lst2)))))))
 
 ; benchmarking code
+(defn- benchmark-sort [srt n msg]
+  (println msg "for " n)
+  (time (srt >= (take n (repeatedly (fn [] (rand-int 100)))))))
+
 (defn time-insertion-sort [n]
-  (time (insertion-sort >= (take n (repeatedly (fn [] (rand-int 100)))))))
+  (benchmark-sort insertion-sort n "Timing insertion sort" ))
 
 (defn time-merge-sort [n]
-  (time (merge-sort >= (take n (repeatedly (fn [] (rand-int 100)))))))
+  (benchmark-sort merge-sort n "Timing merge sort" ))
+
+(defn compare-sorts [n]
+  (time-merge-sort n)
+  (time-insertion-sort n)
+  ())
 
 ; example test code
 ; (defn c-sort-code [] (compile 'algorithms.sort) (refer 'algorithms.sort))
