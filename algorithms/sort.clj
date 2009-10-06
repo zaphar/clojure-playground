@@ -34,38 +34,23 @@
           h2 (first s2)]
       (if (pred h1 h2)
         (let [new-acc (cons h1 acc)]
-          (merge-seq new-acc pred (drop 1 s1) s2))
+          (recur new-acc pred (drop 1 s1) s2))
         (let [new-acc (cons h2 acc)]
-          (merge-seq new-acc pred (drop 1 s2) s1))))))
+          (recur new-acc pred (drop 1 s2) s1))))))
 
 (defn merge-sort
   "merge-sort algorithm"
   [pred s]
   (let [seq-size (count s)]
-    (println "sequence is: " s)
-    (println "size of sequence is: " seq-size)
-    (if (<= seq-size 1)
-      ((println "size was 1 or less returning: " s)
-         s)
-      ((println "size was 2 or more continuing")
-       (let [lst1 (take (int (/ seq-size 2)) s)
+    (if (<= seq-size 1)s
+      (let [lst1 (take (int (/ seq-size 2)) s)
             lst2 (drop (int(/ seq-size 2)) s)]
-        (println "lst1: " lst1)
-        (println "lst2: " lst2)
         ; TODO(jwall): detect the leaf case
         (if (and (<= (count lst1) 1) (<= (count lst2) 1))
-          ((println "found the leaf case merging: " lst1 lst2)
-            (let [merged (merge-seq () pred lst1 lst2)]
-              (println "merged: " merged)
-              merged))
-          (let [new-lst1 ((println "sorting lst1: " lst1)
-                            (merge-sort pred lst1)) ; sort lst1 recursively
-                new-lst2 ((println "sorting lst2: " lst2)
-                            (merge-sort pred lst2))] ; sort lst2 recursively
-            (println "new-lst1: " new-lst1)
-            (println "new-lst2: " new-lst2)
-            (merge-seq () pred new-lst1 new-lst2)))
-         )))))
+          (merge-seq () pred lst1 lst2)
+          (let [new-lst1 (merge-sort pred lst1) ; sort lst1 recursively
+                new-lst2 (merge-sort pred lst2)] ; sort lst2 recursively
+            (merge-seq () pred new-lst1 new-lst2)))))))
 
 ; benchmarking code
 (defn time-insertion-sort [n]
