@@ -41,9 +41,8 @@
   "merge two sorted sequences"
   (do-merge-seq '() pred s1 s2))
 
-(defn merge-sort
+(defn merge-sort [pred s]
   "merge-sort algorithm"
-  [pred s]
   (let [seq-size (count s)]
     (if (<= seq-size 1)s
       (let [lst1 (take (int (/ seq-size 2)) s)
