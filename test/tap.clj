@@ -37,6 +37,9 @@
     ([test-num t]
       `(mk-tap ~t '~t ~test-num))) 
 
+; TODO(jwall): handle exceptions correctly
+; TODO(jwall): replace println with diag in passed in code
+; no-plan support
 (defmacro
   #^{:doc "basic test runner to output assertions in tap format"}
    test-tap [plan & tests]
