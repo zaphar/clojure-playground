@@ -62,32 +62,39 @@
 ;(defn- heap-insert [] )
 
 (defn exchange [i j s]
+  (println "exchange args i: " i " j: " j " s: " s)
   (let [hd (take (- i 1) s)
         ith (nth s (- i 1))
         mid (subvec (vec s) i (- j 1))
         jth (nth s (- j 1))
         tl (drop j s)]
-    (println "hd: " hd)
-    (println "ith: " ith)
-    (println "mid: " mid)
-    (println "jth: " jth)
-    (println "tl: " tl)
     (splice ith (splice jth hd mid) tl)))
 
-(defn- heapify [pred i s] (let [l (nth (b-heap-left i) s)
-                                r (nth (b-heap-right i) s)
-                                top (nth s 0)
-                                ith (nth s i)
-                                heap-size (count s)]
-                            (def largest 0)
-                            (if (and (pred l heap-size) (pred l top))
-                              (ref-set largest l)
-                              ((ref-set largest ith)))
-                            (if (and () ())
-                              (ref-set largest r)
-                              (when (not (= largest i))
-                                (let [s1 (exchange i largest s)]
-                                  ())))))
+(defn- my-nth [coll i]
+  (nth coll (dec i)))
+
+(defn heapify [pred i s] 
+  (println "heapify args i: " i " s: " s)
+  (with-local-vars [heap-size (count s)]
+    (if (> i (var-get heap-size))
+      s
+      (let [l (b-heap-left i)
+            r (b-heap-right i)
+            ith (my-nth s i)]
+        (println "l: " l
+                 "r: " r
+                 "ith: " ith)
+        (with-local-vars [largest 0]
+          (if (and (<= l (var-get heap-size)) (pred (my-nth s l) ith))
+           (var-set largest l)
+           (var-set largest i))
+         (when (and (<= r (var-get heap-size)) (pred (my-nth s r)
+                                                     (my-nth s (var-get largest))))
+           (var-set largest r))
+         (if (not (= (var-get largest) i))
+           (let [s1 (exchange i (var-get largest) s)]
+             (heapify pred (var-get largest) s1))
+          s))))))
 
 (defn heap-sort [] )
 
