@@ -12,6 +12,7 @@
              sd (second pair)]
            (splice k fst sd)))))
 
+; insertion sort sorts in-place and has an 0(n^2) running time
 (defn- do-insertion-sort
   "insertion-sort algorithm"
   [j pred s]
@@ -41,18 +42,54 @@
   "merge two sorted sequences"
   (do-merge-seq '() pred s1 s2))
 
+; merge sort does not sort in place and has an 0(n lg n) running time
 (defn merge-sort [pred s]
   "merge-sort algorithm"
   (let [seq-size (count s)]
     (if (<= seq-size 1)s
       (let [lst1 (take (int (/ seq-size 2)) s)
             lst2 (drop (int(/ seq-size 2)) s)]
-        ; TODO(jwall): detect the leaf case
         (if (and (<= (count lst1) 1) (<= (count lst2) 1))
           (merge-seq pred lst1 lst2)
           (let [new-lst1 (merge-sort pred lst1) ; sort lst1 recursively
                 new-lst2 (merge-sort pred lst2)] ; sort lst2 recursively
             (merge-seq pred new-lst1 new-lst2)))))))
+
+(defn- b-heap-parent [i] (int (/ i 2)))
+(defn- b-heap-left [i] (* i 2))
+(defn- b-heap-right [i] (+ (* i 2) 1))
+;(defn- heap-extract-max [] )
+;(defn- heap-insert [] )
+
+(defn exchange [i j s]
+  (let [hd (take (- i 1) s)
+        ith (nth s (- i 1))
+        mid (subvec (vec s) i (- j 1))
+        jth (nth s (- j 1))
+        tl (drop j s)]
+    (println "hd: " hd)
+    (println "ith: " ith)
+    (println "mid: " mid)
+    (println "jth: " jth)
+    (println "tl: " tl)
+    (splice ith (splice jth hd mid) tl)))
+
+(defn- heapify [pred i s] (let [l (nth (b-heap-left i) s)
+                                r (nth (b-heap-right i) s)
+                                top (nth s 0)
+                                ith (nth s i)
+                                heap-size (count s)]
+                            (def largest 0)
+                            (if (and (pred l heap-size) (pred l top))
+                              (ref-set largest l)
+                              ((ref-set largest ith)))
+                            (if (and () ())
+                              (ref-set largest r)
+                              (when (not (= largest i))
+                                (let [s1 (exchange i largest s)]
+                                  ())))))
+
+(defn heap-sort [] )
 
 ; benchmarking code
 (defn- benchmark-sort [srt n msg]
