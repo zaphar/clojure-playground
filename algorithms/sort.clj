@@ -62,7 +62,7 @@
 ;(defn- heap-insert [] )
 
 (defn exchange [i j s]
-  (println "exchange args i: " i " j: " j " s: " s)
+  ;(println "exchange args i: " i " j: " j " s: " s)
   (let [hd (take (- i 1) s)
         ith (nth s (- i 1))
         mid (subvec (vec s) i (- j 1))
@@ -71,19 +71,20 @@
     (splice ith (splice jth hd mid) tl)))
 
 (defn- my-nth [coll i]
+  ;(println "coll: " coll "i: " i)
   (nth coll (dec i)))
 
 (defn heapify [pred i s] 
-  (println "heapify args i: " i " s: " s)
+  ;(println "heapify args i: " i " s: " s)
   (with-local-vars [heap-size (count s)]
     (if (> i (var-get heap-size))
       s
       (let [l (b-heap-left i)
             r (b-heap-right i)
             ith (my-nth s i)]
-        (println "l: " l
-                 "r: " r
-                 "ith: " ith)
+        ;(println "l: " l
+        ;         "r: " r
+        ;         "ith: " ith)
         (with-local-vars [largest 0]
           (if (and (<= l (var-get heap-size)) (pred (my-nth s l) ith))
            (var-set largest l)
@@ -95,6 +96,16 @@
            (let [s1 (exchange i (var-get largest) s)]
              (heapify pred (var-get largest) s1))
           s))))))
+
+(defn- do-build-heap [pred i end s]
+  (println "build-heap i: " i " end: " end " s: " s)
+  (if (<= i end)
+    s
+    (let [new-s (heapify pred i s)]
+      (recur pred (dec i) end new-s))))
+
+(defn build-heap [pred s]
+  (do-build-heap pred (int (/ (count s) 2)) 0 s))
 
 (defn heap-sort [] )
 
