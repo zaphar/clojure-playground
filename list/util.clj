@@ -11,3 +11,11 @@
             tl (drop 1 s)]
         (recur nxt pred tl))))
   ([acc pred] acc))
+
+(defn foldr
+  ([acc pred s]
+   (if (= s ())
+     acc
+     (let [hd (first s)
+           tl (drop 1 s)]
+       (pred hd (foldr acc pred tl))))))
