@@ -58,33 +58,27 @@
 (defn- b-heap-parent [i] (int (/ i 2)))
 (defn- b-heap-left [i] (* i 2))
 (defn- b-heap-right [i] (+ (* i 2) 1))
-;(defn- heap-extract-max [] )
-;(defn- heap-insert [] )
 
 (defn exchange [i j s]
-  ;(println "exchange args i: " i " j: " j " s: " s)
-  (let [hd (take (- i 1) s)
-        ith (nth s (- i 1))
-        mid (subvec (vec s) i (- j 1))
-        jth (nth s (- j 1))
-        tl (drop j s)]
-    (splice ith (splice jth hd mid) tl)))
+  (if (= i j)
+    s
+    (let [hd (take (- i 1) s)
+          ith (nth s (- i 1))
+          mid (subvec (vec s) i (- j 1))
+          jth (nth s (- j 1))
+          tl (drop j s)]
+      (splice ith (splice jth hd mid) tl))))
 
 (defn- my-nth [coll i]
-  ;(println "coll: " coll "i: " i)
   (nth coll (dec i)))
 
-(defn heapify [pred i s] 
-  ;(println "heapify args i: " i " s: " s)
+(defn- heapify [pred i s]
   (with-local-vars [heap-size (count s)]
     (if (> i (var-get heap-size))
       s
       (let [l (b-heap-left i)
             r (b-heap-right i)
             ith (my-nth s i)]
-        ;(println "l: " l
-        ;         "r: " r
-        ;         "ith: " ith)
         (with-local-vars [largest 0]
           (if (and (<= l (var-get heap-size)) (pred (my-nth s l) ith))
            (var-set largest l)
@@ -94,11 +88,9 @@
            (var-set largest r))
          (if (not (= (var-get largest) i))
            (let [s1 (exchange i (var-get largest) s)]
-             (heapify pred (var-get largest) s1))
-          s))))))
+             (heapify pred (var-get largest) s1)) s))))))
 
 (defn- do-build-heap [pred i end s]
-  (println "build-heap i: " i " end: " end " s: " s)
   (if (<= i end)
     s
     (let [new-s (heapify pred i s)]
@@ -107,7 +99,33 @@
 (defn build-heap [pred s]
   (do-build-heap pred (int (/ (count s) 2)) 0 s))
 
-(defn heap-sort [] )
+(defn- do-heap-sort [pred i s]
+  (if (<= (count s) 2)
+    s
+    (let [new-s (exchange 1 i s)
+          hd (take 1 s)
+          tl (drop 1 s)
+          new-heap (build-heap pred tl)
+          heap-size (count new-heap)
+          start (int (/ heap-size 2))]
+      (concat hd (do-heap-sort pred start new-heap)))))
+
+(defn heap-sort [pred s]
+  (let [heap (build-heap pred s)]
+    (do-heap-sort pred (int (/ (count s) 2)) heap)))
+
+
+; quicksort
+(defn quick-sort 
+  ([pred lst]
+    (let [pvt (first lst)]
+      (when pvt
+        (let [rst (drop 1 lst) ; grap our pivot off the array
+              p1 (filter (partial pred pvt) rst) ; get all below
+              p2 (remove (partial pred pvt) rst)] ; get all above
+          (concat (quick-sort pred p1) ; sort the below list
+                  [pvt] ; pivot goes in middle
+                  (quick-sort pred p2))))))) ; sor the above list
 
 ; benchmarking code
 (defn- benchmark-sort [srt n msg]
@@ -120,14 +138,20 @@
 (defn time-merge-sort [n]
   (benchmark-sort merge-sort n "Timing merge sort" ))
 
+(defn time-quick-sort [n]
+  (benchmark-sort quick-sort n "Timing quick sort" ))
+
+(defn time-heap-sort [n]
+  (benchmark-sort heap-sort n "Timing heap sort"))
+
 (defn compare-sorts [n]
   (time-merge-sort n)
+  (time-quick-sort n)
   (time-insertion-sort n)
-  ())
+  ;(time-heap-sort n)
+  (println "---"))
 
-; example test code
-; (defn c-sort-code [] (compile 'algorithms.sort) (refer 'algorithms.sort))
-; (c-sort-code)
-; (defn test-merge-sort [n] (c-sort-code) (time-merge-sort n))
-; (test-merge-sort 10)
+(defn benchmark-all []
+  (doseq [x (range 50 1050 50)]
+    (compare-sorts x)))
 
