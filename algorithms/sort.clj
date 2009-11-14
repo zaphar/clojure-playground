@@ -12,7 +12,7 @@
              sd (second pair)]
            (splice k fst sd)))))
 
-; insertion sort sorts in-place and has an 0(n^2) running time
+; insertion sort has an 0(n^2) running time
 (defn- do-insertion-sort
   "insertion-sort algorithm"
   [j pred s]
@@ -83,12 +83,12 @@
           (if (and (<= l (var-get heap-size)) (pred (my-nth s l) ith))
            (var-set largest l)
            (var-set largest i))
-         (when (and (<= r (var-get heap-size)) (pred (my-nth s r)
-                                                     (my-nth s (var-get largest))))
-           (var-set largest r))
-         (if (not (= (var-get largest) i))
-           (let [s1 (exchange i (var-get largest) s)]
-             (heapify pred (var-get largest) s1)) s))))))
+          (when (and (<= r (var-get heap-size)) (pred (my-nth s r)
+                                                      (my-nth s (var-get largest))))
+          (var-set largest r))
+        (if (not (= (var-get largest) i))
+          (let [s1 (exchange i (var-get largest) s)]
+            (recur pred (var-get largest) s1)) s))))))
 
 (defn- do-build-heap [pred i end s]
   (if (<= i end)
@@ -125,7 +125,7 @@
               p2 (remove (partial pred pvt) rst)] ; get all above
           (concat (quick-sort pred p1) ; sort the below list
                   [pvt] ; pivot goes in middle
-                  (quick-sort pred p2))))))) ; sor the above list
+                  (quick-sort pred p2))))))) ; sort the above list
 
 ; benchmarking code
 (defn- benchmark-sort [srt n msg]
