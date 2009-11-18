@@ -10,12 +10,12 @@
 (derive java.io.Reader ::io)
 
 (declare mk-uri-struct read-scheme read-authority read-path
-  read-query read-fragment get-char get-stream drop-n-chars maybe
+  read-query read-frag get-char get-stream drop-n-chars maybe
   parse-uri-string read-chars read-to-char read-stream)
 
-(defmulti mk-uri type)
 (defstruct uri :scheme :authority :path :query :fragment)
 
+(defmulti mk-uri type)
 (defmethod mk-uri ::string [s]
   (parse-uri-string s))
 (defmethod mk-uri ::list [l]
@@ -23,11 +23,11 @@
 
 (defn- parse-uri-string [s]
   (with-in-str s
-      (mk-uri-struct [(read-scheme)
+      (mk-uri-struct (read-scheme)
                       (read-authority)
                       (read-path)
                       (read-query)
-                      (read-fragment)])))
+                      (read-frag))))
 
 (defn- mk-uri-struct [scheme
                       authority
@@ -99,7 +99,7 @@
     :else ""))
 
 (defn test-suite []
-    (test-tap 9
+    (test-tap 16
       (nil? (get-char (get-stream "")))
       (is \f (get-char (get-stream "f")))
       (is "123" (read-chars 3 (get-stream "1234")))
@@ -110,6 +110,11 @@
       (is "frag" (read-frag (get-stream "frag")))
       (is ["q=1" "frag"] (with-in-str "q=1#frag" [(read-query) (read-frag)]))
       (is "foo" (with-in-str "foo://bar.com/blah" (read-scheme)))
+      (is "foo" (:scheme (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "bar.com" (:authority (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "q=1" (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is ["foo"
            "user:pass@bar.com:123"
            "blah"
