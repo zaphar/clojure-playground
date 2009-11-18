@@ -32,8 +32,9 @@
 (defmacro
   run-tap-tests 
     ([test-num t & next]
-      `((run-tap-tests ~test-num ~t)
-       (run-tap-tests (inc ~test-num) ~@next)))
+      `(doall
+         (run-tap-tests ~test-num ~t)
+         (run-tap-tests (inc ~test-num) ~@next)))
     ([test-num t]
       `(mk-tap ~t '~t ~test-num))) 
 
@@ -43,7 +44,7 @@
 (defmacro
   #^{:doc "basic test runner to output assertions in tap format"}
    test-tap [plan & tests]
-        `((mk-plan ~plan)
+        `(doall (mk-plan ~plan)
           (run-tap-tests 1 ~@tests)))
 
 ;; helper test functions
