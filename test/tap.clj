@@ -57,6 +57,14 @@
   not-ok [b]
   (if b false true))
 
+(defn
+  #^{:doc "is - returns true for equality false otherwise"}
+  is [expected got]
+  (cond
+    (= expected got) true
+    :else ((diag (str \[ got \] " not equal to " \[ expected \]))
+           false)))
+
 ;; sample test functions for testing the framework and reflection
 (defn tap-test-fun []
   {:doc "sample testing function to test the tap function"}
