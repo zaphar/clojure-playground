@@ -1,3 +1,10 @@
+; Copyright (c) Jeremy Wall. All rights reserved.
+; This software is available under the terms of the 
+; Artistic License 2.0 
+;   (http://www.opensource.org/licenses/artistic-license-2.0.php)
+; By using this software in any fashion you are agreeing to be bound by
+; the terms of this license.
+; You must not remove this notice, or any other, from this software.
 (ns path.uri
   (:gen-class)
   (:import (java.io PushbackReader StringReader)
