@@ -25,9 +25,13 @@
 
 (defn
   #^{:doc "tap output function"}
-  mk-tap [b msg test-count]
-    (if b (println (format "%s - ok %s" test-count msg))
-       (println (format "%s - not ok %s" test-count msg))))
+  mk-tap [f msg test-count]
+    ; TODO(jwall): handle exceptions correctly
+    (try
+      (if (f) (println (format "%s - ok %s" test-count msg))
+        (println (format "%s - not ok %s" test-count msg)))
+      (catch Exception e
+        (println (format "%s - not ok %s died" test-count msg)))))
 
 (defmacro
   run-tap-tests 
@@ -36,11 +40,9 @@
          (run-tap-tests ~test-num ~t)
          (run-tap-tests (inc ~test-num) ~@next)))
     ([test-num t]
-      `(mk-tap ~t '~t ~test-num))) 
+      `(mk-tap #(do ~t) '~t ~test-num))) 
 
-; TODO(jwall): handle exceptions correctly
-; TODO(jwall): replace println with diag in passed in code
-; no-plan support
+; TODO(jwall): no-plan support
 (defmacro
   #^{:doc "basic test runner to output assertions in tap format"}
    test-tap [plan & tests]
@@ -79,11 +81,17 @@
   (diag "running tap-test-fun")
   true)
 
+(defn tap-test-fun-exception []
+  {:doc "sample testing function to test the tap function"}
+  (diag "running tap-test-fun")
+  (throw (Exception. "I'm dying! Auuggghhhh......")))
+
 (defn test-set-to-run []
   {:doc "sample set of tests"}
-  (test-tap 3
+  (test-tap 4
     (= 1 1)
     (not (= 1 2))
+    (tap-test-fun-exception)
     (tap-test-fun)))
 
 ; helpful reflection functions to examine the internals of
