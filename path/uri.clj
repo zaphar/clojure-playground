@@ -9,7 +9,8 @@
   (:gen-class)
   (:import (java.io PushbackReader StringReader)
            (java.lang IllegalStateException))
-  (:use test.tap))
+  (:use test.tap)
+  (:use dispatch.util))
 
 (derive java.lang.String ::string)
 (derive clojure.lang.LazilyPersistentVector ::list)
@@ -17,7 +18,7 @@
 (derive java.io.Reader ::io)
 
 (declare mk-uri-struct read-scheme read-authority read-path
-  read-query read-frag get-char get-stream drop-n-chars maybe
+  read-query read-frag get-char get-stream drop-n-chars
   parse-uri-string read-chars read-to-char read-stream)
 
 (defstruct uri :scheme :authority :path :query :fragment)
@@ -87,9 +88,6 @@
             :else (throw "Malformed scheme in uri"))
           (not (= c \:)) (let [scheme (str c (read-scheme s))]
                                scheme)))))
-
-(defn- maybe ([] nil)
-             ([x] (type x)))
 
 (defmulti get-stream maybe)
 (defmethod get-stream nil [] *in*)

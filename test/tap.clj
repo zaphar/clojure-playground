@@ -11,7 +11,8 @@
      :license "Artistic License 2.0"
      :version "0.01.0"}
   test.tap
-  (:gen-class))
+  (:gen-class)
+  (:use dispatch.util))
 
 (defn
   #^{:doc "tap diagnostic output function"}
@@ -74,6 +75,12 @@
   (cond
     (= expected got) true
     :else (diag-false (str "expected: " \[ expected \] " got: " \[ got \] ))))
+
+(defmulti
+  #^{:doc "is-deeply - returns true for equality. Does deep field inspection"}
+  is-deeply maybe)
+(defmethod is-deeply nil
+  [] false)
 
 ;; sample test functions for testing the framework and reflection
 (defn tap-test-fun []
