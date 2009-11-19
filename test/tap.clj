@@ -90,6 +90,6 @@
 ; the test-tap functions
 (defn reflect-test-tap []
   (macroexpand `(test-tap 2
-           (= 1 1)
-           (not (= 1 1)))))
+                          (= 1 1)
+                          (not (= 1 1)))))
 
