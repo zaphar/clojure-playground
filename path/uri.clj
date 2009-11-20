@@ -56,7 +56,9 @@
 
 (defn- read-query
   ([] (read-query (get-stream)))
-  ([s] (read-to-char \# s)))
+  ([s] (map
+         (fn [x] (vec (.split x "=")))
+         (vec (.split (read-to-char \# s) "&")))))
 
 (defn- read-path
   ([] (read-path (get-stream)))
@@ -163,9 +165,9 @@
              :port 80)
           (with-in-str "user:pass@bar.com:80/blah" (read-authority)))
       (is "path/to/some" (read-path (get-stream "path/to/some?q=1")))
-      (is "q=1" (read-query (get-stream "q=1#frag")))
+      (is [["q" "1"]] (read-query (get-stream "q=1#frag")))
       (is "frag" (read-frag (get-stream "frag")))
-      (is ["q=1" "frag"] (with-in-str "q=1#frag" [(read-query) (read-frag)]))
+      (is [[["q" "1"]] "frag"] (with-in-str "q=1#frag" [(read-query) (read-frag)]))
       (is "foo" (with-in-str "foo://bar.com/blah" (read-scheme)))
       (is "foo" (:scheme (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is (struct-map uri-authority
@@ -174,7 +176,7 @@
              :domain "bar.com"
              :port 80) (:authority (mk-uri "foo://user:pass@bar.com:80/blah?q=1#frag")))
       (is "blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
-      (is "q=1" (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is [["q" "1"]] (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is ["foo"
            (struct-map uri-authority
@@ -183,7 +185,7 @@
              :domain "bar.com"
              :port 123)
            "blah"
-           "q=1"
+           [["q" "1"]]
            "frag"]
           (with-in-str "foo://user:pass@bar.com:123/blah?q=1#frag"
                 [(read-scheme)
