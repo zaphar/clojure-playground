@@ -64,23 +64,23 @@
   ([] (read-path (get-stream)))
   ([s] (read-to-char \? s)))
 
-(defn read-user-pass-rest
+(defn- read-user-pass-rest
   [s] (let [v (vec (.split s "@"))]
             (cond
               (> (.size v) 1) v
               :else [nil (first v)])))
 
-(defn read-domain-port
+(defn- read-domain-port
   [s] (let [v (.split s ":")
             domain (first v)
             port (drop 1 v)]
         [domain (cond (= port ()) nil
                   :else (Integer/valueOf (first port)))]))
 
-(defn read-user
+(defn- read-user
   [s] (first (.split s ":")))
 
-(defn read-pass
+(defn- read-pass
   [s] (let [v (vec (.split s ":"))]
         (cond
           (> (.size v) 1) (nth v 1)
@@ -94,10 +94,9 @@
              domain-port (read-domain-port (nth user-pass-rest 1))
              domain (first domain-port)
              port (nth domain-port 1)
-             user (cond (nil? user-pass) nil
-                    :else (read-user user-pass))
-             pass (cond (nil? user-pass) nil
-                    :else (read-pass user-pass))]
+             [user pass] (cond (nil? user-pass) [nil nil]
+                    :else [(read-user user-pass)
+                           (read-pass user-pass)])]
          (struct-map uri-authority
                      :user user
                      :pass pass
