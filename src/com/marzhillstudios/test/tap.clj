@@ -10,9 +10,9 @@
      :author "Jeremy Wall <jeremy@marzhilltudios.com>",
      :license "Artistic License 2.0"
      :version "0.01.0"}
-  test.tap
+  com.marzhillstudios.test.tap
   (:gen-class)
-  (:use dispatch.util))
+  (:use com.marzhillstudios.dispatch.util))
 
 (defn
   #^{:doc "tap diagnostic output function"}
@@ -32,7 +32,7 @@
       (if (f) (println (format "%s - ok %s" test-count msg))
         (println (format "%s - not ok %s" test-count msg)))
       (catch Exception e
-        (println (format "%s - not ok %s died" test-count msg)))))
+        (println (format "%s - not ok %s died: %s" test-count msg e)))))
 
 (defmacro
   run-tap-tests 
@@ -74,13 +74,7 @@
   is [expected got]
   (cond
     (= expected got) true
-    :else (diag-false (str "expected: " \[ expected \] " got: " \[ got \] ))))
-
-(defmulti
-  #^{:doc "is-deeply - returns true for equality. Does deep field inspection"}
-  is-deeply maybe)
-(defmethod is-deeply nil
-  [] false)
+    :else (diag-false (str "expected: " \[ expected \] "\n# got: " \[ got \] ))))
 
 ;; sample test functions for testing the framework and reflection
 (defn tap-test-fun []

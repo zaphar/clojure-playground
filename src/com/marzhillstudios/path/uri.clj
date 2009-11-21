@@ -5,12 +5,12 @@
 ; By using this software in any fashion you are agreeing to be bound by
 ; the terms of this license.
 ; You must not remove this notice, or any other, from this software.
-(ns path.uri
+(ns com.marzhillstudios.path.uri
   (:gen-class)
   (:import (java.io PushbackReader StringReader)
            (java.lang IllegalStateException))
-  (:use test.tap)
-  (:use dispatch.util))
+  (:use com.marzhillstudios.test.tap)
+  (:use com.marzhillstudios.dispatch.util))
 
 (derive java.lang.String ::string)
 (derive clojure.lang.LazilyPersistentVector ::list)

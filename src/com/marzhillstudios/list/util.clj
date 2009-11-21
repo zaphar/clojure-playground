@@ -1,5 +1,5 @@
 (ns
-  list.util
+  com.marzhillstudios.list.util
   (:gen-class))
 
 (defn foldl

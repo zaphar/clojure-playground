@@ -2,7 +2,7 @@
   #^{:author "Jeremy Wall"
      :doc "This library contains useful functions to be used
            as dispatch functions for multi-methods."}
-  dispatch.util
+  com.marzhillstudios.dispatch.util
   (:gen-class))
 
 (defn 

@@ -1,5 +1,5 @@
 (ns
-  algorithms.sort
+  com.marzhillstudios.algorithms.sort
   (:gen-class))
 
 (defn- splice [k fseq tseq]
