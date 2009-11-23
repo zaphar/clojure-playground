@@ -72,7 +72,7 @@
                       (read-query)
                       (read-frag))))
 
-(defn- mk-uri-struct [scheme
+(defn mk-uri-struct [scheme
                       authority
                       path
                       query
