@@ -11,7 +11,8 @@
            (java.lang IllegalStateException))
   (:use com.marzhillstudios.test.tap)
   (:use com.marzhillstudios.dispatch.util)
-  (:use com.marzhillstudios.list.util))
+  (:use com.marzhillstudios.list.util)
+  (:use clojure.contrib.str-utils))
 
 (derive java.lang.String ::string)
 (derive clojure.lang.LazilyPersistentVector ::list)
@@ -46,7 +47,7 @@
     (let [query (foldl "?" (fn [acc pair]
                 (str acc (first pair)
                      "=" (nth pair 1) "&")) q)]
-      (subs query 0 (dec (.length query)))))
+      (chop query)))
 
 
 (defn- authority-to-string [auth]
@@ -209,6 +210,8 @@
       (is "blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is [["q" "1"]] (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "foo://user:pass@bar.com/blah?q=1#frag"
+          (uri-to-string (mk-uri "foo://user:pass@bar.com/blah?q=1#frag")))
       (is "user:pass@foo.com:80", (authority-to-string  
                                     (struct-map uri-authority
                                       :user "user"
