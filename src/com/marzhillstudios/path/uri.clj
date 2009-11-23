@@ -38,7 +38,6 @@
 (defmethod mk-uri ::list [l]
   (mk-uri-struct l))
 
-
 (defn- fragments-to-string [s]
     (cond (nil? s) ""
       :else (str "#" s)))
