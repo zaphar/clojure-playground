@@ -10,7 +10,8 @@
   (:import (java.io PushbackReader StringReader)
            (java.lang IllegalStateException))
   (:use com.marzhillstudios.test.tap)
-  (:use com.marzhillstudios.dispatch.util))
+  (:use com.marzhillstudios.dispatch.util)
+  (:use com.marzhillstudios.list.util))
 
 (derive java.lang.String ::string)
 (derive clojure.lang.LazilyPersistentVector ::list)
@@ -20,16 +21,48 @@
 (declare mk-uri-struct read-scheme read-authority read-path
   read-query read-frag get-char get-stream drop-n-chars
   parse-uri-string read-chars read-to-char read-stream
-  read-user-pass-rest read-domain-port)
+  read-user-pass-rest read-domain-port authority-to-string
+  query-to-string fragments-to-string)
 
 (defstruct uri :scheme :authority :path :query :fragment)
 (defstruct uri-authority :user :pass :domain :port)
+
+(defn uri-to-string [u]
+  (str (:scheme u) "://" (authority-to-string (:authority u))
+    "/" (:path u) (query-to-string (:query u))
+       (fragments-to-string (:fragment u))))
 
 (defmulti mk-uri type)
 (defmethod mk-uri ::string [s]
   (parse-uri-string s))
 (defmethod mk-uri ::list [l]
   (mk-uri-struct l))
+
+
+(defn- fragments-to-string [s]
+    (cond (nil? s) ""
+      :else (str "#" s)))
+
+(defn- query-to-string [q]
+    (let [query (foldl "?" (fn [acc pair]
+                (str acc (first pair)
+                     "=" (nth pair 1) "&")) q)]
+      (subs query 0 (dec (.length query)))))
+
+
+(defn- authority-to-string [auth]
+  (let [user (:user auth)
+        pass (:pass auth)
+        user-pass (str (cond (nil? user) ""
+                              :else user)
+                       (cond (nil? pass) ""
+                         :else (str ":" pass)))
+        domain (:domain auth)
+        port (:port auth)]
+    (str (cond (= user-pass "") ""
+           :else (str user-pass "@"))
+         domain (cond (nil? port) ""
+                  :else (str ":" port)))))
 
 (defn- parse-uri-string [s]
   (with-in-str s
@@ -143,7 +176,7 @@
 (defmethod get-stream ::string [s] (PushbackReader. (StringReader. s)))
 
 (defn test-suite []
-    (test-tap 20
+    (test-tap 21
       (nil? (get-char (get-stream "")))
       (is \f (get-char (get-stream "f")))
       (is "123" (read-chars 3 (get-stream "1234")))
@@ -177,6 +210,12 @@
       (is "blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is [["q" "1"]] (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
       (is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "user:pass@foo.com:80", (authority-to-string  
+                                    (struct-map uri-authority
+                                      :user "user"
+                                      :pass "pass"
+                                      :domain "foo.com"
+                                      :port 80)))
       (is ["foo"
            (struct-map uri-authority
              :user "user"
