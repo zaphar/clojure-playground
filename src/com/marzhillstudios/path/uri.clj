@@ -77,11 +77,11 @@
                       path
                       query
                       fragment]
-  (struct-map uri
+  (with-meta (struct-map uri
     :scheme scheme
     :authority authority
     :path path :query query
-    :fragment fragment))
+    :fragment fragment) {:type ::uri}))
 
 (defn- read-frag
   ([] (read-frag (get-stream)))
