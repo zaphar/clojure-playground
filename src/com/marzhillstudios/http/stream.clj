@@ -3,12 +3,17 @@
   (:require
      [com.marzhillstudios.path.uri :as uri]
      [com.marzhillstudios.list.util :as lu]
-     [clojure.contrib.http.agent :as ha])
+     [clojure.contrib.http.agent :as ha]
+     [clojure.contrib.duck-streams :as du])
   (:use [com.marzhillstudios.test.tap :only [test-tap ok is]]))
 
-; TODO(jwall): make it use read-lines from the duck-streams lib?
-(defmulti get-http-page type)
-(defmethod get-http-page java.lang.String
-  [s] (ha/stream (ha/http-agent s)))
-(defmethod get-http-page :com.marzhillstudios.path.uri/uri
-  [u] (get-http-page (uri/uri-to-string u)))
+(defmulti get-http-stream
+  "Gets an http stream using duck-stream/read-lines from the given url.
+   
+  Takes either a string or path.uri/uri object as an argument."
+  type)
+(defmethod get-http-stream java.lang.String
+  [s] (du/read-lines (ha/stream (ha/http-agent
+                                  s :follow-redirects true))))
+(defmethod get-http-stream :com.marzhillstudios.path.uri/uri
+  [u] (get-http-stream (uri/uri-to-string u)))

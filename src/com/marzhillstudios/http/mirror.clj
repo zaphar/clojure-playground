@@ -3,7 +3,8 @@
   (:require [clojure.contrib.duck-streams :as ds]
      [com.marzhillstudios.path.uri :as uri]
      [com.marzhillstudios.list.util :as lu])
-  (:use [com.marzhillstudios.test.tap :only [test-tap ok is]]))
+  (:use [com.marzhillstudios.test.tap :only [test-tap ok is]]
+     [com.marzhillstudios.http.stream :only [get-http-stream]]))
 
 (defstruct file-spec :contents :urls)
 
@@ -25,6 +26,9 @@
 (defn- consume-file [s]
   (lu/foldl (struct-map file-spec :contents [] :urls [])
             do-line s))
+
+(defn process-stream [uri]
+  (consume-file (get-http-stream uri)))
 
 (defn test-suite []
   (test-tap 4
