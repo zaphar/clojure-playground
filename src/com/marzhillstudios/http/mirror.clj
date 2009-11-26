@@ -26,7 +26,6 @@
   (lu/foldl (struct-map file-spec :contents [] :urls [])
             do-line s))
 
-(defn
 (defn test-suite []
   (test-tap 4
             (is '("http://foo.bar/" "http://bar.com/")

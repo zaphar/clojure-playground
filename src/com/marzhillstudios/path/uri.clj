@@ -170,7 +170,7 @@
     (> n 0) (str (get-char s) (read-chars (dec n) s))
     :else ""))
 
-(defmulti get-stream maybe)
+(defmulti #^{:private true } get-stream maybe)
 (defmethod get-stream nil [] *in*)
 (defmethod get-stream ::io [in] in)
 (defmethod get-stream ::string [s] (PushbackReader. (StringReader. s)))
