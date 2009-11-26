@@ -12,7 +12,8 @@
      :version "0.01.0"}
   com.marzhillstudios.test.tap
   (:gen-class)
-  (:use com.marzhillstudios.dispatch.util))
+  (:use [com.marzhillstudios.dispatch.util]
+        [clj-stacktrace.core]))
 
 (defn
   #^{:doc "tap diagnostic output function"}
@@ -24,6 +25,18 @@
   mk-plan [plan]
   (println (format "1..%s" plan)))
 
+(defn- diag-exception [e]
+  (let [except (parse-exception e)]
+    (do
+      (diag (str "Exception: " (:class except)))
+      (diag (str "Reason: " (:message except)))
+      (diag (str "Trace: " (:message except)))
+      (let [trace (:trace-elems except)]
+        (doseq [elem trace]
+          (diag (str "\tNamespace: " (:ns elem)
+                     "\tFile: " (:file elem)
+                     "\tLine: " (:line elem))))))))
+
 (defn
   #^{:doc "tap output function"}
   mk-tap [f msg test-count]
@@ -32,7 +45,8 @@
       (if (f) (println (format "%s - ok %s" test-count msg))
         (println (format "%s - not ok %s" test-count msg)))
       (catch Exception e
-        (println (format "%s - not ok %s died: %s" test-count msg e)))))
+        (println (format "%s - not ok %s" test-count msg))
+        (diag-exception e))))
 
 (defmacro
   run-tap-tests 
@@ -74,7 +88,7 @@
   is [expected got]
   (cond
     (= expected got) true
-    :else (diag-false (str "expected: " \[ expected \] "\n# got: " \[ got \] ))))
+    :else (diag-false (str "expected: " \[ expected \] "\n# got:      " \[ got \] ))))
 
 ;; sample test functions for testing the framework and reflection
 (defn tap-test-fun []
