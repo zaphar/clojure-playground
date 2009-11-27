@@ -8,10 +8,9 @@
 
 (defstruct file-spec :contents :urls)
 
-(def link-pattern (re-pattern  "href='(([^'])+)'|\"(([^\"])+)\""))
-
+(def link-pattern (re-pattern  "(href|src)='(([^'])+)'|\"(([^\"])+)\""))
 (defn- find-urls [s]
-  (map (fn [match] (nth match 1))
+  (map (fn [match] (nth match 2))
        (re-seq link-pattern s)))
 
 (defn- process-urls [ln]
@@ -35,7 +34,7 @@
             (is '("http://foo.bar/" "http://bar.com/")
                 (find-urls
                   (str "fjkdla; fooo <a href='http://foo.bar/'></a> fjdkla;"
-                       "fjkdla; fooo <a href='http://bar.com/'></a> fjdkla;")))
+                       "fjkdla; fooo <img src='http://bar.com/'></a> fjdkla;")))
             (is "http://foo.bar/"
                 (first (find-urls
                   (str "fjkdla; fooo <a href='http://foo.bar/'></a> fjdkla;"
@@ -48,8 +47,7 @@
                        "fjkdla; fooo <a href='http://bar.com/'></a> fjdkla;")
                   fspec (struct-map file-spec :contents '("")
                                     :urls '("http://foo.bar/"))]
-              (is [(struct-map file-spec :contents (seq ["" s])
+              (is (struct-map file-spec :contents (seq ["" s])
                                :urls '("http://foo.bar/" "http://foo.bar/" "http://bar.com/"))
-                   s]
                 (do-line fspec s)))
             ))
