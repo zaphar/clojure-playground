@@ -31,7 +31,7 @@
 
 (defn uri-to-string [u]
   (str (:scheme u) "://" (authority-to-string (:authority u))
-    "/" (:path u) (query-to-string (:query u))
+    (:path u) (query-to-string (:query u))
        (fragments-to-string (:fragment u))))
 
 (defmulti mk-uri type)
@@ -50,7 +50,6 @@
                      "=" (nth pair 1) "&")) q)]
       (chop query)))
 
-
 (defn- authority-to-string [auth]
   (let [user (:user auth)
         pass (:pass auth)
@@ -66,12 +65,16 @@
                   :else (str ":" port)))))
 
 (defn- parse-uri-string [s]
-  (with-in-str s
-      (mk-uri-struct (read-scheme)
-                      (read-authority)
-                      (read-path)
-                      (read-query)
-                      (read-frag))))
+      (let [scheme (read-scheme s)
+            authority (read-authority s)
+            path (read-path s)
+            query (read-query s)
+            frag (read-frag s)]
+        (mk-uri-struct scheme
+                       authority
+                       path
+                       query
+                       frag)))
 
 (defn mk-uri-struct [scheme
                       authority
@@ -96,12 +99,12 @@
          (cond (nil? match) ()
            :else (map (fn [x] (vec (.split x "=")))
                       (vec (.split (last match) "&")))))))
-   
 
-(def path-pattern (re-pattern "(/?[^#\\?]+)"))
+(def path-pattern (re-pattern "^([a-zA-Z][^:]*://)?([^/]+)?(/?[^#\\?]*)"))
 (defn- read-path
   ([s] (let [match (re-find (re-matcher path-pattern s))]
          (cond (nil? match) nil
+           (nil? (nth match 1)) (first match)
            :else (last match)))))
 
 (defn- read-user-pass-rest
@@ -210,37 +213,36 @@
       (is "frag" (read-frag "#frag"))
       (is [["q" "1"] "frag"] [(first (read-query "?q=1#frag"))
                                   (read-frag "?q=1#frag")])
-      ;(is "foo" (with-in-str "foo://bar.com/blah" (read-scheme)))
-      ;(is "foo" (:scheme (mk-uri "foo://bar.com/blah?q=1#frag")))
-      ;(is (struct-map uri-authority
-      ;       :user "user"
-      ;       :pass "pass"
-      ;       :domain "bar.com"
-      ;       :port 80) (:authority (mk-uri "foo://user:pass@bar.com:80/blah?q=1#frag")))
-      ;(is "blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
-      ;(is [["q" "1"]] (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
-      ;(is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
-      ;(is "foo://user:pass@bar.com/blah?q=1#frag"
-      ;    (uri-to-string (mk-uri "foo://user:pass@bar.com/blah?q=1#frag")))
-      ;(is "user:pass@foo.com:80", (authority-to-string  
-      ;                              (struct-map uri-authority
-      ;                                :user "user"
-      ;                                :pass "pass"
-      ;                                :domain "foo.com"
-      ;                                :port 80)))
-      ;(is ["foo"
-      ;     (struct-map uri-authority
-      ;       :user "user"
-      ;       :pass "pass"
-      ;       :domain "bar.com"
-      ;       :port 123)
-      ;     "blah"
-      ;     [["q" "1"]]
-      ;     "frag"]
-      ;    (with-in-str "foo://user:pass@bar.com:123/blah?q=1#frag"
-      ;          [(read-scheme)
-      ;           (read-authority)
-      ;           (read-path)
-      ;           (read-query)
-      ;           (read-frag)]))
+      (is "foo" (:scheme (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is (struct-map uri-authority
+             :user "user"
+             :pass "pass"
+             :domain "bar.com"
+             :port 80) (:authority (mk-uri "foo://user:pass@bar.com:80/blah?q=1#frag")))
+      (is "/blah" (:path (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is [["q" "1"]] (:query (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "frag" (:fragment (mk-uri "foo://bar.com/blah?q=1#frag")))
+      (is "foo://user:pass@bar.com/blah?q=1#frag"
+          (uri-to-string (mk-uri "foo://user:pass@bar.com/blah?q=1#frag")))
+      (is "user:pass@foo.com:80", (authority-to-string  
+                                    (struct-map uri-authority
+                                      :user "user"
+                                      :pass "pass"
+                                      :domain "foo.com"
+                                      :port 80)))
+      (is ["foo"
+           (struct-map uri-authority
+             :user "user"
+             :pass "pass"
+             :domain "bar.com"
+             :port 123)
+           "/blah"
+           '(["q" "1"])
+           "frag"]
+          (let [s "foo://user:pass@bar.com:123/blah?q=1#frag"]
+                [(read-scheme s)
+                 (read-authority s)
+                 (read-path s)
+                 (read-query s)
+                 (read-frag s)]))
                  ))
