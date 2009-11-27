@@ -2,11 +2,17 @@
   com.marzhillstudios.http.mirror
   (:require [clojure.contrib.duck-streams :as ds]
      [com.marzhillstudios.path.uri :as uri]
-     [com.marzhillstudios.list.util :as lu])
+     [com.marzhillstudios.list.util :as lu]
+     [com.marzhillstudios.util :as util])
   (:use [com.marzhillstudios.test.tap :only [test-tap ok is]]
      [com.marzhillstudios.http.stream :only [get-http-stream]]))
 
 (defstruct file-spec :contents :urls)
+(defn- mk-file-spec [contents urls]
+  (util/add-type ::file-spec
+            (struct-map file-spec
+              :contents contents
+              :urls urls)))
 
 (def link-pattern (re-pattern  "(href|src)='(([^'])+)'|\"(([^\"])+)\""))
 (defn- find-urls [s]
@@ -20,14 +26,14 @@
   (let [[urls line] (process-urls ln)
          c (concat (:contents fspec) [line])
          url-list (concat (:urls fspec) urls)]
-     (struct-map file-spec :contents c :urls url-list)))
+     (mk-file-spec c url-list)))
 
-(defn- consume-file [s]
-  (lu/foldl (struct-map file-spec :contents [] :urls [])
+(defn- consume-stream [s]
+  (lu/foldl (mk-file-spec [] [])
             do-line s))
 
 (defn process-stream [uri]
-  (consume-file (get-http-stream uri)))
+  (consume-stream (get-http-stream uri)))
 
 (defn test-suite []
   (test-tap 4

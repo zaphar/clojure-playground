@@ -5,3 +5,9 @@
 
 (defn print-class-path []
   (pprint (seq (.getURLs (java.lang.ClassLoader/getSystemClassLoader)))))
+
+(defn add-type
+  ([nmsp t target]
+   (add-type (keyword nmsp t) target))
+  ([t target]
+   (with-meta target {:type t})))
