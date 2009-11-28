@@ -24,10 +24,9 @@
 (defn uri-type [] ::uri)
 
 (declare mk-uri-struct read-scheme read-authority read-path
-  read-query read-frag get-char get-stream drop-n-chars
-  parse-uri-string read-chars read-to-char read-stream
-  read-user-pass-rest read-domain-port authority-to-string
-  query-to-string fragments-to-string)
+  read-query read-frag parse-uri-string
+  read-user-pass-rest read-domain-port
+  authority-to-string query-to-string fragments-to-string)
 
 (defstruct uri :scheme :authority :path :query :fragment)
 (defstruct uri-authority :user :pass :domain :port)
@@ -167,39 +166,8 @@
          (cond (nil? match) nil
            :else (nth match 1)))))
 
-(defn- read-stream [s]
-  (let [c (get-char s)]
-    (cond
-      (nil? c) ""
-      :else (str c (read-stream s)))))
-
-(defn- read-to-char [i s]
-  (let [c (get-char s)]
-        (cond 
-          (nil? c) ""
-          (= c i) ""
-          :else (let [token (str c (read-to-char i s))]
-                  token))))
-
-(defn- get-char [s] (let [i (.read s)]
-                      (cond (not (= i -1)) (char i)
-                            (= i -1) nil)))
-
-(defn- read-chars [n s] 
-  (cond
-    (> n 0) (str (get-char s) (read-chars (dec n) s))
-    :else ""))
-
-(defmulti #^{:private true } get-stream maybe)
-(defmethod get-stream nil [] *in*)
-(defmethod get-stream ::io [in] in)
-(defmethod get-stream ::string [s] (PushbackReader. (StringReader. s)))
-
 (defn test-suite []
     (test-tap 30
-      (nil? (get-char (get-stream "")))
-      (is \f (get-char (get-stream "f")))
-      (is "123" (read-chars 3 (get-stream "1234")))
       (is "foo" (read-scheme "foo://"))
       (is nil (read-scheme "foo//"))
       (is nil (first (read-user-pass-rest "bar.com")))
