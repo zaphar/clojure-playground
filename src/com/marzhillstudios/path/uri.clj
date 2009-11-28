@@ -103,12 +103,19 @@
            :else (map (fn [x] (vec (.split x "=")))
                       (vec (.split (last match) "&")))))))
 
-(def path-pattern (re-pattern "^([a-zA-Z][^:]*://)?([^/]+)?(/?[^#\\?]*)"))
-(defn- read-path
+(def path-pattern
+  (re-pattern "^(([a-zA-Z][^:]*://)([^/]+)?)?([/\\.]?[^#\\?]*)"))
+(defn apply-path-pattern [s] (re-find (re-matcher path-pattern s)))
+(defn read-path
   ([s] (let [match (re-find (re-matcher path-pattern s))]
          (cond (nil? match) nil
            (nil? (nth match 1)) (first match)
-           :else (last match)))))
+           :else (let [domain (nth match 3)
+                       path (last match)]
+                   (cond (or
+                           (= domain "..")
+                           (= domain ".")) (str domain path)
+                     :else path))))))
 
 (defn- read-user-pass-rest
   [s] (let [v (vec (.split s "@"))]
@@ -189,7 +196,7 @@
 (defmethod get-stream ::string [s] (PushbackReader. (StringReader. s)))
 
 (defn test-suite []
-    (test-tap 28
+    (test-tap 30
       (nil? (get-char (get-stream "")))
       (is \f (get-char (get-stream "f")))
       (is "123" (read-chars 3 (get-stream "1234")))
@@ -211,6 +218,8 @@
            (read-authority "http://user:pass@bar.com:80/blah"))
       (is "path/to/some" (read-path "path/to/some?q=1"))
       (is "/path/to/some" (read-path "file:///path/to/some?q=1"))
+      (is "../path/to/some" (read-path "file://../path/to/some?q=1"))
+      (is "./path/to/some" (read-path "file://./path/to/some?q=1"))
       (is "path/to/some" (read-path "path/to/some#frag"))
       (is "path/to/some" (read-path "path/to/some?q=1#frag"))
       (is ["q" "1"] (first (read-query "?q=1#frag")))
