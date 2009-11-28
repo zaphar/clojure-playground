@@ -189,7 +189,7 @@
 (defmethod get-stream ::string [s] (PushbackReader. (StringReader. s)))
 
 (defn test-suite []
-    (test-tap 23
+    (test-tap 28
       (nil? (get-char (get-stream "")))
       (is \f (get-char (get-stream "f")))
       (is "123" (read-chars 3 (get-stream "1234")))
@@ -210,6 +210,7 @@
              :port 80)
            (read-authority "http://user:pass@bar.com:80/blah"))
       (is "path/to/some" (read-path "path/to/some?q=1"))
+      (is "/path/to/some" (read-path "file:///path/to/some?q=1"))
       (is "path/to/some" (read-path "path/to/some#frag"))
       (is "path/to/some" (read-path "path/to/some?q=1#frag"))
       (is ["q" "1"] (first (read-query "?q=1#frag")))
