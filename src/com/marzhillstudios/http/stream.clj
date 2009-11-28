@@ -16,5 +16,5 @@
   [s] (du/read-lines (ha/stream (ha/http-agent
                                   s :follow-redirects true))))
 
-(defmethod get-http-stream :com.marzhillstudios.path.uri/uri
+(defmethod get-http-stream (uri/uri-type)
   [u] (get-http-stream (uri/uri-to-string u)))

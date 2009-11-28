@@ -21,6 +21,8 @@
 (derive clojure.lang.Cons ::list)
 (derive java.io.Reader ::io)
 
+(defn uri-type [] ::uri)
+
 (declare mk-uri-struct read-scheme read-authority read-path
   read-query read-frag get-char get-stream drop-n-chars
   parse-uri-string read-chars read-to-char read-stream
