@@ -9,10 +9,11 @@
   (:gen-class)
   (:import (java.io PushbackReader StringReader)
            (java.lang IllegalStateException))
-  (:use com.marzhillstudios.test.tap)
-  (:use com.marzhillstudios.dispatch.util)
-  (:use com.marzhillstudios.list.util)
-  (:use clojure.contrib.str-utils))
+  (:use [com.marzhillstudios.test.tap :only [test-tap is]]
+        [com.marzhillstudios.dispatch.util]
+        [com.marzhillstudios.list.util]
+        [com.marzhillstudios.util :only [add-type]]
+        [clojure.contrib.str-utils]))
 
 ; TODO(jwall): all pieces should be optional
 (derive java.lang.String ::string)
@@ -81,11 +82,11 @@
                       path
                       query
                       fragment]
-  (with-meta (struct-map uri
+  (add-type ::uri (struct-map uri
     :scheme scheme
     :authority authority
     :path path :query query
-    :fragment fragment) {:type ::uri}))
+    :fragment fragment)))
 
 (def frag-pattern (re-pattern "#(.+)"))
 (defn- read-frag
