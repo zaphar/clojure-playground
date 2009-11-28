@@ -11,3 +11,6 @@
    (add-type (keyword nmsp t) target))
   ([t target]
    (with-meta target {:type t})))
+
+(defn defmulti- [n dispatch]
+  (defmulti #^{:private true} n dispatch))
