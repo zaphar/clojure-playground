@@ -19,3 +19,6 @@
      (let [hd (first s)
            tl (drop 1 s)]
        (pred hd (foldr acc pred tl))))))
+
+(defmacro lazy-cons*
+  ([x rst] `(lazy-cat (cons ~x ~rst))))

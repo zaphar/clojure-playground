@@ -42,6 +42,13 @@
 (defmethod mk-uri ::list [l]
   (mk-uri-struct l))
 
+(defmulti resolve-uri #(type (first %)))
+(defmethod resolve-uri ::string [s anchor]
+  (resolve-uri (mk-uri s) anchor))
+(defmethod resolve-uri (uri-type) [u anchor]
+  (let [path (:path u)]
+    nil))
+
 (defn- fragments-to-string [s]
     (cond (nil? s) ""
       :else (str "#" s)))
