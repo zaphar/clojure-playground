@@ -35,6 +35,25 @@
 (defmethod resolve-path [(path-type) (path-type)]
   [p anchor] ())
 
+(defn- normalize-path [prefix rst]
+  (filter #(not (nil? %))
+          (lazy-cat
+            prefix
+            ; make a starter a path object and foldl across it
+            (lu/foldl
+              [] (fn [acc nxt]
+                   (println "processing: " nxt)
+                   (let [result (cond (= nxt "..")
+                                  (cond (>= (count acc) 1)
+                                     (vec (drop-last acc))
+                                    :else (throw (IllegalArgumentException.
+                                                 "Malformed path")))
+                                  (= nxt ".") acc 
+                                  :else (conj acc nxt))]
+                     (println "built so far: " result)
+                     result))
+              rst))))
+
 (defn normalize-relative-path [p]
   (when (absolute? p)
     ; can't be absolute path
@@ -45,31 +64,19 @@
         rst (drop (count (concat ddprefix sdprefix)) path)]
     ; prefix .'s get collapsed
     ; all prefix ..'s stay
-    (filter #(not (nil? %))
-            (lazy-cat
-              ddprefix (cons (first sdprefix) ())
-              ; make a starter a path object and foldl across it
-              (lu/foldl
-                [] (fn [acc nxt]
-                     (println "processing: " nxt)
-                     (let [result (cond (= nxt "..")
-                                    (cond (>= (count acc) 1)
-                                       (vec (drop-last acc))
-                                      :else (throw (IllegalArgumentException.
-                                                   "Malformed path")))
-                                    (= nxt ".") acc 
-                                    :else (conj acc nxt))]
-                       (println "built so far: " result)
-                       result))
-                rst)))))
+    (normalize-path (lazy-cat ddprefix (cons (first sdprefix) ()))
+                    rst)))
 
 (defn normalize-absolute-path [p]
   (when (not (absolute? p))
     ; can't be relative path
     (throw (IllegalArgumentException. "Path must be an absolute path")))
-  (let [path (mk-path p)]
+  (let [path (mk-path p)
+        root (first path)
+        rst (drop 1 path)]
   ; make a starter a path object and foldl across it
-    nil))
+    (normalize-path [root] rst)))
+
 (defn make-absolute-path [p anchor]
   (when (not (absolute? anchor))
     ; anchor must be an absolute path
