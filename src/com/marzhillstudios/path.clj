@@ -1,6 +1,7 @@
 (ns
   com.marzhillstudios.path
   (:gen-class)
+  (:import (java.lang IllegalArgumentException))
   (:require [com.marzhillstudios.util :as util]
      [com.marzhillstudios.list.util :as lu]
      [clojure.contrib.core :as ccc]))
@@ -54,7 +55,8 @@
                      (let [result (cond (= nxt "..")
                                     (cond (>= (count acc) 1)
                                        (vec (drop-last acc))
-                                      :else (throw ))
+                                      :else (throw (IllegalArgumentException.
+                                                   "Malformed path")))
                                     (= nxt ".") acc 
                                     :else (conj acc nxt))]
                        (println "built so far: " result)
