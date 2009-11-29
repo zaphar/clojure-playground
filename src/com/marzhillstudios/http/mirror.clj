@@ -42,7 +42,6 @@
   (lu/foldl (mk-file-spec [] [] uri)
             do-line s))
 
-; TODO(jwall): learn about this agent stuff
 (defn- save-page [fspec] (do (println (str "saving: page "
                                       (:name fspec)))))
 
