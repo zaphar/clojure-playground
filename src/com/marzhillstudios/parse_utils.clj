@@ -20,9 +20,18 @@
      [clojure.contrib.str-utils :only [re-sub]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
+; TODO(jwall): the :tree :rest map needs a state constructor function.
 (defn- mk-leaf
   ([] (mk-leaf ())) 
   ([nm] (cons nm ())))
+
+(defstruct ast-state :tree :rest)
+(defn mk-ast-state
+  "Constructs a state map for the grammar matchers to use."
+  ([tree rst & opts]
+    (apply struct-map ast-state :tree tree :rest rst opts))
+  ([tree rst]
+    (struct-map ast-state :tree tree :rest rst)))
 
 (defn apply-grammar
   "Apply a Grammar to a sequence. and get the resulting AST."
@@ -36,7 +45,7 @@
    using the provided parse-tree."
   [parse-tree] (fn [s] (parse-tree s)))
 
-; Grammar function constructors
+; Grammar matcher constructors
 
 ; Matcher modifiers
 (defn match-ignore
@@ -45,30 +54,41 @@
    if the match fails."
   [matcher] (fn [s] (let [match (matcher s)]
                               (cond (nil? match) nil
-                                :else {:tree (mk-leaf ()) :rest (:rest match)}))))
+                                :else (mk-ast-state (mk-leaf ())
+                                                   (:rest match))))))
 
 (defn forward-match
   "Returns a function that does a forward match but does not consume
    the matched tokens. The function will return nil if the match fails."
   [matcher] (fn [s] (let [match (matcher s)]
                               (cond (nil? match) nil
-                                :else {:tree (mk-leaf) :rest (seq s)}))))
+                                :else (mk-ast-state (mk-leaf) 
+                                                   (seq s))))))
 
 (defn optional
   "Returns a function that never returns nil. If provided matcher matches
    then the function returns the match. If provided matcher does not match
    then the function returns the empty list."
   [matcher] (fn [s] (let [match (matcher s)]
-                              (cond (nil? match) {:tree (mk-leaf) :rest (seq s)}
+                              (cond (nil? match) (mk-ast-state (mk-leaf) 
+                                                              (seq s))
                                 :else match))))
+
+(defn annotated
+  "Returns a function that annotates a provided base matcher. If the provided
+   matcher does not match then the function returns nil."
+  [annotation matcher]
+    (fn [s]
+      (let [match (matcher s)]
+        (cond (nil? match) nil
+          :else (mk-ast-state (mk-leaf (hash-map annotation (:tree match)))
+                             (:rest match))))))
 
 ; Matcher combinators
 
-; TODO(jwall): backtracking matchers?
-
 (defn- list-match-of
   ([acc matchers s]
-   (cond (empty? matchers) {:tree (mk-leaf acc) :rest s}
+   (cond (empty? matchers) (mk-ast-state (mk-leaf acc) s)
      (empty? s) nil
      :else (let [matcher (first matchers)
                  token? (matcher s)]
@@ -107,17 +127,17 @@
     (let [matched (matcher s)
           cnt (inc (:count acc))]
       (cond
-        (nil? matched) {:tree (mk-leaf (:tree acc)) :rest s}
-        (= cnt n) {:tree (mk-leaf (conj (:tree acc)
-                                          (:tree matched)))
-                   :rest (:rest matched)}
-        :else (recur {:tree (conj (:tree acc) (:tree matched))
-                          :rest ""}
+        (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
+        (= cnt n) (mk-ast-state (mk-leaf (conj (:tree acc)
+                                              (:tree matched)))
+                    (:rest matched))
+        :else (recur (mk-ast-state (conj (:tree acc) (:tree matched))
+                                  "")
                           matcher n (:rest matched)))))
   ([matcher n s]
     (let [matched (matcher s)]
       (cond (nil? matched) nil
-        :else (repeated-match-n {:tree [(:tree matched)] :rest "" :count 1}
+        :else (repeated-match-n (mk-ast-state [(:tree matched)] "" :count 1)
                           matcher n (:rest matched))))))
 (defn repeated-n
   "Returns a function that matches a matcher up to n times."
@@ -126,30 +146,18 @@
 (defn- repeated-match
   ([acc matcher s]
     (let [matched (matcher s)]
-      (cond (nil? matched) {:tree (mk-leaf (:tree acc)) :rest s}
-        :else (recur {:tree (conj
-                               (:tree acc)
-                               (:tree matched))
-                      :rest ""}
+      (cond (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
+        :else (recur (mk-ast-state (conj (:tree acc)
+                                        (:tree matched)) "")
                      matcher (:rest matched)))))
   ([matcher s]
     (let [matched (matcher s)]
       (cond (nil? matched) nil
-        :else (repeated-match {:tree [(:tree matched)] :rest ""}
+        :else (repeated-match (mk-ast-state [(:tree matched)] "")
                           matcher (:rest matched))))))
 (defn repeated [matcher]
   "Returns a function that matches a matcher greedily."
   (fn [s] (repeated-match matcher s)))
-
-(defn annotated
-  "Returns a function that annotates a provided base matcher. If the provided
-   matcher does not match then the function returns nil."
-  [annotation matcher]
-    (fn [s]
-      (let [match (matcher s)]
-        (cond (nil? match) nil
-          :else {:tree (mk-leaf (hash-map annotation (:tree match)))
-                 :rest (:rest match)}))))
 
 ; Base matchers
 (defn space []
@@ -162,7 +170,7 @@
   ([token s] (exact-token-maybe-fn "" token s))
   ([acc token s]
     (cond
-      (empty? token) {:tree (mk-leaf acc) :rest s}
+      (empty? token) (mk-ast-state (mk-leaf acc) s)
       (empty? s) nil
       :else (let [sc (first s)
                   tc (first token)]
@@ -186,9 +194,9 @@
                    (cond (empty? s) nil
                      (nil? token?) (recur (str acc (first s))
                                           token (drop 1 s))
-                     :else {:tree (mk-leaf [(mk-leaf (str acc))
-                                              (:tree token?)])
-                            :rest (:rest token?)}))))
+                     :else (mk-ast-state (mk-leaf [(mk-leaf (str acc))
+                                                  (:tree token?)])
+                              (:rest token?))))))
 (defmulti- until-token-maybe (fn [t s] (ifn? t)))
 (defmethod until-token-maybe true
   [token s] (until-token-maybe-fn token s))
@@ -205,9 +213,9 @@
 (defmethod re-match-of true
   [pattern s] (let [match (re-find (re-matcher pattern s))]
                 (cond (nil? match) nil
-                  :else {:tree (mk-leaf (cond (seq? match) (drop 1 match)
-                                   :else match))
-                         :rest (seq (re-sub pattern "" s))})))
+                  :else (mk-ast-state (mk-leaf (cond (seq? match) (drop 1 match)
+                                                 :else match))
+                           (seq (re-sub pattern "" s))))))
 (defn re-match
   "Returns a function that matches and consumes a regex defining the token.
    If there are groups then the final grouping is the token returned.
