@@ -17,6 +17,7 @@
   (:gen-class)
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
      [clojure.contrib.core :only [seqable?]]
+     [clojure.contrib.str-utils :only [re-sub]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
 (defn- mk-leaf
@@ -189,14 +190,29 @@
   [token] (partial until-token-maybe token))
 
 ; TODO(jwall): regex matcher function
-;(re-find (re-matcher re s))
+(defmulti- re-match-of (fn [p _]
+                         (instance? java.util.regex.Pattern p)))
+(defmethod re-match-of true
+  [pattern s] (let [match (re-find (re-matcher pattern s))]
+                (cond (nil? match) nil
+                  :else {:tree (mk-leaf (cond (seq? match) (drop 1 match)
+                                   :else match))
+                         :rest (seq (re-sub pattern "" s))})))
+(defn re-match
+  "Returns a function that matches and consumes a regex defining the token.
+   If there are groups then the final grouping is the token returned.
+   The function returns nil if the regex does not match"
+  [pattern]
+  (fn [s] (re-match-of pattern s)))
 
 (defn test-suite []
-  (test-tap 20
+  (test-tap 21
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
                 ((exact \;) ";foo bar"))
+            (is {:tree (mk-leaf "foo") :rest (seq " bar")}
+                ((re-match #"foo") "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
                          (mk-leaf "bar")])
                  :rest ()}
