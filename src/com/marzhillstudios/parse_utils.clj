@@ -142,6 +142,8 @@
   (fn [s] (repeated-match matcher s)))
 
 (defn annotated
+  "Returns a function that annotates a provided base matcher. If the provided
+   matcher does not match then the function returns nil."
   [annotation matcher]
     (fn [s]
       (let [match (matcher s)]
