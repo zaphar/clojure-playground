@@ -4,11 +4,11 @@
              Example: simple file format parser
              (def header
                (optional
-                 (list-match (match-ignore "--") (until (match-ignore \"--\"))
-                             (optional (repeated (space0)))
-                             (repeated-n (exact \"\\n\") 3))))
+                 (list-match (match-ignore \"--\") (until (match-ignore \"--\"))
+                             (optional (repeated (space)))
+                             (repeated-n (exact \\n) 3))))
              
-             (def body (repeated (until "\n")))
+             (def body (repeated (until \\n)))
              (def file (list-match header body))
              (def parser (grammar file))
              (defn parse-file [s] (apply-grammar parser s))
@@ -192,7 +192,7 @@
 ;(re-find (re-matcher re s))
 
 (defn test-suite []
-  (test-tap 19
+  (test-tap 20
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
