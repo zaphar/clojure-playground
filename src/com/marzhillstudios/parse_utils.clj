@@ -1,26 +1,61 @@
 (ns
+  #^{:doc "Parse utilities for parsing a sequence with some base parse
+           matchers for parsing strings.
+           
+           Example: parse a string into it's lines
+           (let [syntax (grammar (repeated (until \"\\n\")))]
+             (apply-grammar syntax string))
+           "}
   com.marzhillstudios.parse-utils
   (:gen-class)
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
-(defn- mk-leaf [nm]
-  nm)
+(defn- mk-leaf
+  ([] (mk-leaf ())) 
+  ([nm] (cons nm ())))
 
+(defn apply-grammar
+  "Apply a Grammar to a sequence. and get the resulting AST."
+  [grammar s]
+  ; TODO(jwall): should I care if the grammar didn't consume entire sequence?
+  (:tree (grammar s)))
+
+; Full Grammar constructor
 (defn grammar
   "Returns a function that will parse a sequence
    using the provided parse-tree."
-  [parse-tree] )
+  [parse-tree] (fn [s] (parse-tree s)))
 
-(defn match-drop
-  "Returns a function that matches/consumes the matchers but does not
-   return them. The function will return nil if the match fails."
-  [matchers] nil)
+; Grammar function constructors
+
+; Matcher modifiers
+(defn match-ignore
+  "Returns a function that matches/consumes the matchers
+   and returns empty list if it matched. The function returns nil
+   if the match fails."
+  [matcher] (fn [s] (let [match (matcher s)]
+                              (cond (nil? match) nil
+                                :else {:tree (mk-leaf ()) :rest (:rest match)}))))
 
 (defn forward-match
   "Returns a function that does a forward match but does not consume
-   the matched tokens. The function will return nill if the match fails."
-  [matchers] nil)
+   the matched tokens. The function will return nil if the match fails."
+  [matcher] (fn [s] (let [match (matcher s)]
+                              (cond (nil? match) nil
+                                :else {:tree (mk-leaf) :rest (seq s)}))))
+
+(defn optional
+  "Returns a function that never returns nil. If provided matcher matches
+   then the function returns the match. If provided matcher does not match
+   then the function returns the empty list."
+  [matcher] (fn [s] (let [match (matcher s)]
+                              (cond (nil? match) {:tree (mk-leaf) :rest (seq s)}
+                                :else match))))
+
+; Matcher combinators
+
+; TODO(jwall): backtracking matchers?
 
 (defn- list-match-of
   ([acc matchers s]
@@ -33,14 +68,18 @@
                             (drop 1 matchers)
                             (:rest token?))))))
   ([matchers s] (list-match-of [] matchers s)))
-(defn list-match [& l]
+(defn list-match
+  "Returns a function that matches/consumes a list of matchers.
+   If entire list does not match the match fails and the function
+   returns nil."
+  [& l]
   (fn [s] (list-match-of l s)))
 
 (defn- first-match-of [matchers s]
   (some (fn [m] (m s)) matchers))
 (defn first-of
   "Returns a function that matches consumes the first of the matchers
-  to match."
+   to match."
   [& matchers]
   (fn [s] (first-match-of matchers s)))
 
@@ -93,9 +132,12 @@
   "Returns a function that matches a matcher greedily."
   (fn [s] (repeated-match matcher s)))
 
+; Base matchers
 (defn space []
   "Returns a function that matches/consumes exactly one space."
   (exact " "))
+
+; TODO(jwall): linefeed, tab, carriage return
 
 (defn- exact-token-maybe
   ([token s] (exact-token-maybe "" token s))
@@ -126,8 +168,11 @@
    Returns portion of the sequence that matched and the rest. nil if no match."
   [token] (partial until-token-maybe token))
 
+; TODO(jwall): regex matcher function
+;(re-find (re-matcher re s))
+
 (defn test-suite []
-  (test-tap 12
+  (test-tap 18
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
@@ -174,5 +219,17 @@
             (is {:tree (mk-leaf "foo")
                  :rest (seq " bar")}
                 ((first-of (exact "bar") (exact "foo")) "foo bar"))
+            (is {:tree (mk-leaf "foo") :rest (seq " bar")}
+                ((optional (exact "foo")) "foo bar"))
+            (is {:tree (mk-leaf) :rest (seq "fo bar")}
+                ((optional (exact "foo")) "fo bar"))
+            (is {:tree (mk-leaf) :rest (seq "foo bar")}
+                ((forward-match (exact "foo")) "foo bar"))
+            (is nil
+                ((forward-match (exact "foo")) "fo bar"))
+            (is {:tree (mk-leaf) :rest (seq (seq " bar"))}
+                ((match-ignore (exact "foo")) "foo bar"))
+            (is nil
+                ((match-ignore (exact "foo")) "fo bar"))
             ))
 
