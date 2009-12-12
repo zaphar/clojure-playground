@@ -12,5 +12,6 @@
   ([t target]
    (with-meta target {:type t})))
 
-(defn defmulti- [n dispatch]
-  (defmulti #^{:private true} n dispatch))
+(defmacro defmulti- [n dispatch]
+  (let [nm (with-meta n {:private true})]
+    `(defmulti ~nm ~dispatch)))

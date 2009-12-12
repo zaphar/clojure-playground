@@ -4,9 +4,9 @@
              Example: simple file format parser
              (def header
                (optional
-                 (list-match (match-ignore "--") (until "--")
+                 (list-match (match-ignore "--") (until (match-ignore \"--\"))
                              (optional (repeated (space0)))
-                             (repeated-n (exact "\n") 3))))
+                             (repeated-n (exact \"\\n\") 3))))
              
              (def body (repeated (until "\n")))
              (def file (list-match header body))
@@ -15,7 +15,8 @@
              "}
   com.marzhillstudios.parse-utils
   (:gen-class)
-  (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]))
+  (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
+     [com.marzhillstudios.util :only [defmulti-]]))
 
 (defn- mk-leaf
   ([] (mk-leaf ())) 
@@ -161,15 +162,20 @@
   [token] (partial exact-token-maybe token))
 
 ; TODO(jwall): add support for token either string or a matcher.
-(defn- until-token-maybe
-  ([token s] (until-token-maybe "" token s))
-  ([acc token s] (let [token? (exact-token-maybe token s)]
+(defn- until-token-maybe-fn
+  ([token s] (until-token-maybe-fn "" token s))
+  ([acc token s] (let [token? (token s)]
                    (cond (empty? s) nil
                      (nil? token?) (recur (str acc (first s))
                                           token (drop 1 s))
                      :else {:tree (mk-leaf [(mk-leaf (str acc))
                                               (:tree token?)])
                             :rest (:rest token?)}))))
+(defmulti- until-token-maybe (fn [t s] (isa? (type t) clojure.lang.IFn)))
+(defmethod until-token-maybe true
+  [token s] (until-token-maybe-fn token s))
+(defmethod until-token-maybe false
+  [token s] (until-token-maybe-fn (exact token) s))
 (defn until 
   "Returns a function that reads up to a token from a sequence.
    Returns portion of the sequence that matched and the rest. nil if no match."
@@ -179,13 +185,17 @@
 ;(re-find (re-matcher re s))
 
 (defn test-suite []
-  (test-tap 18
+  (test-tap 19
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
                          (mk-leaf "bar")])
                  :rest ()}
                 (until-token-maybe "bar" "foo bar"))
+            (is {:tree (mk-leaf [(mk-leaf "foo ")
+                         (mk-leaf "bar")])
+                 :rest ()}
+                (until-token-maybe (exact "bar") "foo bar"))
             (is {:tree (mk-leaf "foo")  :rest (seq " bar")}
                 (any-of [(exact "baz")
                          (until "bork")
