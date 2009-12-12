@@ -141,6 +141,14 @@
   "Returns a function that matches a matcher greedily."
   (fn [s] (repeated-match matcher s)))
 
+(defn annotated
+  [annotation matcher]
+    (fn [s]
+      (let [match (matcher s)]
+        (cond (nil? match) nil
+          :else {:tree (mk-leaf (hash-map annotation (:tree match)))
+                 :rest (:rest match)}))))
+
 ; Base matchers
 (defn space []
   "Returns a function that matches/consumes exactly one space."
@@ -206,7 +214,7 @@
   (fn [s] (re-match-of pattern s)))
 
 (defn test-suite []
-  (test-tap 22
+  (test-tap 23
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
@@ -223,6 +231,9 @@
                          (mk-leaf "bar")])
                  :rest ()}
                 (until-token-maybe (exact "bar") "foo bar"))
+            (is {:tree (mk-leaf {:foo (mk-leaf "foo")})
+                 :rest (seq " bar")}
+                ((annotated :foo (exact "foo")) "foo bar"))
             (is {:tree (mk-leaf "foo")  :rest (seq " bar")}
                 (any-of [(exact "baz")
                          (until "bork")
