@@ -16,6 +16,7 @@
   com.marzhillstudios.parse-utils
   (:gen-class)
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
+     [clojure.contrib.core :only [seqable?]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
 (defn- mk-leaf
@@ -146,16 +147,22 @@
 
 ; TODO(jwall): linefeed, tab, carriage return
 
-(defn- exact-token-maybe
-  ([token s] (exact-token-maybe "" token s))
+(defn- exact-token-maybe-fn
+  ([token s] (exact-token-maybe-fn "" token s))
   ([acc token s]
-   ( cond (empty? token) {:tree (mk-leaf acc) :rest s}
-     (empty? s) nil
-     :else (let [sc (first s)
-                 tc (first token)]
-             (cond
-               (= sc tc) (recur (str acc sc) (drop 1 token) (drop 1 s))
-               :else nil)))))
+    (cond
+      (empty? token) {:tree (mk-leaf acc) :rest s}
+      (empty? s) nil
+      :else (let [sc (first s)
+                  tc (first token)]
+              (cond
+                (= sc tc) (recur (str acc sc) (drop 1 token) (drop 1 s))
+                :else nil)))))
+(defmulti- exact-token-maybe (fn [token s] (seqable? token)))
+(defmethod exact-token-maybe true
+  ([token s] (exact-token-maybe-fn token s)))
+(defmethod exact-token-maybe false
+  ([token s] (exact-token-maybe-fn (cons token ()) s)))
 (defn exact
   "Returns a function that reads a token from a sequence.
    Returns token and rest of seq if matched, nil if no match."
@@ -188,6 +195,8 @@
   (test-tap 19
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
+            (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
+                ((exact \;) ";foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
                          (mk-leaf "bar")])
                  :rest ()}
