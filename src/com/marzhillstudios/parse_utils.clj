@@ -179,7 +179,7 @@
                      :else {:tree (mk-leaf [(mk-leaf (str acc))
                                               (:tree token?)])
                             :rest (:rest token?)}))))
-(defmulti- until-token-maybe (fn [t s] (isa? (type t) clojure.lang.IFn)))
+(defmulti- until-token-maybe (fn [t s] (ifn? t)))
 (defmethod until-token-maybe true
   [token s] (until-token-maybe-fn token s))
 (defmethod until-token-maybe false
@@ -206,13 +206,15 @@
   (fn [s] (re-match-of pattern s)))
 
 (defn test-suite []
-  (test-tap 21
+  (test-tap 22
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
                 ((exact \;) ";foo bar"))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 ((re-match #"foo") "foo bar"))
+            (is nil
+                ((re-match #"foo") "fo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
                          (mk-leaf "bar")])
                  :rest ()}
