@@ -1,11 +1,18 @@
-(ns
-  #^{:doc "Parse utilities for parsing a sequence with some base parse
-           matchers for parsing strings.
-           
-           Example: parse a string into it's lines
-           (let [syntax (grammar (repeated (until \"\\n\")))]
-             (apply-grammar syntax string))
-           "}
+(ns #^{:doc "Parse utilities for parsing a sequence with some base parse
+             matchers for parsing strings.
+             
+             Example: simple file format parser
+             (def header
+               (optional
+                 (list-match (match-ignore "--") (until "--")
+                             (optional (repeated (space0)))
+                             (repeated-n (exact "\n") 3))))
+             
+             (def body (repeated (until "\n")))
+             (def file (list-match header body))
+             (def parser (grammar file))
+             (defn parse-file [s] (apply-grammar parser s))
+             "}
   com.marzhillstudios.parse-utils
   (:gen-class)
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
@@ -154,6 +161,7 @@
    Returns token and rest of seq if matched, nil if no match."
   [token] (partial exact-token-maybe token))
 
+; TODO(jwall): add support for token either string or a matcher.
 (defn- until-token-maybe
   ([token s] (until-token-maybe "" token s))
   ([acc token s] (let [token? (exact-token-maybe token s)]
