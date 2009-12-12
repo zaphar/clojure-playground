@@ -15,8 +15,7 @@
              "}
   com.marzhillstudios.parse-utils
   (:gen-class)
-  (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
-     [com.marzhillstudios.util :only [defmulti-]]))
+  (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]))
 
 (defn- mk-leaf
   ([] (mk-leaf ())) 
