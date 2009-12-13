@@ -4,7 +4,7 @@
              Example: simple file format parser
              (def header
                (optional
-                 (list-match (match-ignore \"--\") (until (match-ignore \"--\"))
+                 (list-match (ignore \"--\") (until (ignore \"--\"))
                              (optional (repeated (space)))
                              (repeated-n (exact \\n) 3))))
              
@@ -20,10 +20,14 @@
      [clojure.contrib.str-utils :only [re-sub]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
-; TODO(jwall): the :tree :rest map needs a state constructor function.
 (defn- mk-leaf
   ([] (mk-leaf ())) 
-  ([nm] (cons nm ())))
+  ([nm] (cond
+          (or (vector? nm)
+              (seq? nm))(let [branch (filter #(not (= % ())) nm)]
+                          (cond (= (count branch) 1) (first branch)
+                            :else branch))
+          :else nm)))
 
 (defstruct ast-state :tree :rest)
 (defn mk-ast-state
@@ -34,10 +38,12 @@
     (struct-map ast-state :tree tree :rest rst)))
 
 (defn apply-grammar
-  "Apply a Grammar to a sequence. and get the resulting AST."
+  "Apply a Grammar to a sequence. and get the resulting AST.
+   AST: {tree rest}"
   [grammar s]
-  ; TODO(jwall): should I care if the grammar didn't consume entire sequence?
-  (:tree (grammar s)))
+  (let [parsed (grammar s)]
+    {(:tree parsed)
+     (:rest parsed)}))
 
 ; Full Grammar constructor
 (defn grammar
@@ -48,13 +54,13 @@
 ; Grammar matcher constructors
 
 ; Matcher modifiers
-(defn match-ignore
+(defn ignore
   "Returns a function that matches/consumes the matchers
    and returns empty list if it matched. The function returns nil
    if the match fails."
   [matcher] (fn [s] (let [match (matcher s)]
                               (cond (nil? match) nil
-                                :else (mk-ast-state (mk-leaf ())
+                                :else (mk-ast-state (mk-leaf)
                                                    (:rest match))))))
 
 (defn forward-match
@@ -162,7 +168,19 @@
 ; Base matchers
 (defn space []
   "Returns a function that matches/consumes exactly one space."
-  (exact " "))
+  (exact \space ))
+(defn tab []
+  (exact \tab))
+
+(defn cr []
+  (exact \return ))
+(defn lf []
+  (exact \newline))
+(defn crlf []
+  (list-match (cr) (lf)))
+
+(defn whitespace []
+  (any (space) (tab) (crlf) (cr) (lf)))
 
 ; TODO(jwall): linefeed, tab, carriage return
 
@@ -195,7 +213,7 @@
                      (nil? token?) (recur (str acc (first s))
                                           token (drop 1 s))
                      :else (mk-ast-state (mk-leaf [(mk-leaf (str acc))
-                                                  (:tree token?)])
+                                                   (:tree token?)])
                               (:rest token?))))))
 (defmulti- until-token-maybe (fn [t s] (ifn? t)))
 (defmethod until-token-maybe true
@@ -224,7 +242,9 @@
   (fn [s] (re-match-of pattern s)))
 
 (defn test-suite []
-  (test-tap 23
+  (test-tap 24
+            (is ["foo"] (mk-leaf ["foo" ()]))
+            (is ["foo"] (mk-leaf '("foo" ())))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
@@ -234,11 +254,11 @@
             (is nil
                 ((re-match #"foo") "fo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
-                         (mk-leaf "bar")])
+                                 (mk-leaf "bar")])
                  :rest ()}
                 (until-token-maybe "bar" "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
-                         (mk-leaf "bar")])
+                                 (mk-leaf "bar")])
                  :rest ()}
                 (until-token-maybe (exact "bar") "foo bar"))
             (is {:tree (mk-leaf {:foo (mk-leaf "foo")})
@@ -250,35 +270,35 @@
                          (exact "foo")]
                         "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
-                         (mk-leaf "bar")])
+                       (mk-leaf "bar")])
                  :rest ()}
                 ((any (exact "baz")
                       (until "bar")
                       (exact "foo"))
                        "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
-                                   (mk-leaf "foo")])
+                                 (mk-leaf "foo")])
                  :rest (seq " bar")}
                 (repeated-match (exact "foo") "foofoo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
-                                   (mk-leaf "foo")])
+                                 (mk-leaf "foo")])
                  :rest (seq " bar")}
                 ((repeated (exact "foo")) "foofoo bar"))
             (is {:tree (mk-leaf " ") :rest (seq "bar")}
                 ((space) " bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
-                                   (mk-leaf "foo")])
+                                 (mk-leaf "foo")])
                  :rest ()}
                 ((repeated-n (exact "foo") 2) "foofoo"))
             ; not sure this is the correct behaviour?
             (is {:tree (mk-leaf [(mk-leaf "foo")]) :rest ()}
                 ((repeated-n (exact "foo") 2) "foo"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
-                                   (mk-leaf "foo")])
+                                 (mk-leaf "foo")])
                  :rest (seq " bar")}
                 ((repeated-n (exact "foo") 2) "foofoo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
-                                   (mk-leaf "foo")])
+                                 (mk-leaf "foo")])
                  :rest (seq "foo bar")}
                 ((repeated-n (exact "foo") 2) "foofoofoo bar"))
             (is {:tree (mk-leaf "foo")
@@ -293,8 +313,8 @@
             (is nil
                 ((forward-match (exact "foo")) "fo bar"))
             (is {:tree (mk-leaf) :rest (seq (seq " bar"))}
-                ((match-ignore (exact "foo")) "foo bar"))
+                ((ignore (exact "foo")) "foo bar"))
             (is nil
-                ((match-ignore (exact "foo")) "fo bar"))
+                ((ignore (exact "foo")) "fo bar"))
             ))
 
