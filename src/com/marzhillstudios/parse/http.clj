@@ -33,8 +33,18 @@
 
 (def http-initial-line (any http-status-line http-request-line))
 
+(def http-header-line
+  (merge-annotations
+    (annotated :key
+               (until (ignore \:)))
+    (annotated :value
+               (until (ignore (crlf))))))
+
+(def http-headers
+  (annotated :http-headers (repeated http-header-line)))
+
 (def http-grammar
-  (list-match http-initial-line))
+  (list-match http-initial-line http-headers))
 
 (defn parse-http [s]
   (apply-grammar http-grammar s))

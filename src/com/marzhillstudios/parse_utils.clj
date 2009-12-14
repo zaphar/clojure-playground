@@ -54,7 +54,7 @@
 ; Grammar matcher constructors
 
 ; Matcher modifiers
-(defn ignore
+(defn- ignore-fn
   "Returns a function that matches/consumes the matchers
    and returns empty list if it matched. The function returns nil
    if the match fails."
@@ -62,25 +62,40 @@
                               (cond (nil? match) nil
                                 :else (mk-ast-state (mk-leaf)
                                                    (:rest match))))))
+(defmulti ignore ifn?)
+(defmethod ignore true
+  [token] (ignore-fn token))
+(defmethod ignore false
+  [token] (ignore-fn (exact token)))
 
-(defn forward-match
+(defn- forward-match-fn
   "Returns a function that does a forward match but does not consume
    the matched tokens. The function will return nil if the match fails."
   [matcher] (fn [s] (let [match (matcher s)]
                               (cond (nil? match) nil
                                 :else (mk-ast-state (mk-leaf) 
                                                    (seq s))))))
+(defmulti forward-match ifn? )
+(defmethod forward-match true
+  [token] (forward-match-fn token))
+(defmethod forward-match false
+  [token] (forward-match-fn (exact token)))
 
-(defn optional
+(defn- optional-fn
   "Returns a function that never returns nil. If provided matcher matches
    then the function returns the match. If provided matcher does not match
    then the function returns the empty list."
   [matcher] (fn [s] (let [match (matcher s)]
-                              (cond (nil? match) (mk-ast-state (mk-leaf) 
-                                                              (seq s))
-                                :else match))))
+                      (cond (nil? match) (mk-ast-state (mk-leaf)
+                                                       (seq s))
+                        :else match))))
+(defmulti optional ifn?)
+(defmethod optional true
+  [token] (optional-fn token))
+(defmethod optional false
+  [token] (optional-fn (exact token)))
 
-(defn annotated
+(defn annotated-fn
   "Returns a function that annotates a provided base matcher. If the provided
    matcher does not match then the function returns nil."
   [annotation matcher]
@@ -89,9 +104,13 @@
         (cond (nil? match) nil
           :else (mk-ast-state (mk-leaf (hash-map annotation (:tree match)))
                              (:rest match))))))
+(defmulti annotated (fn [annotation t] (ifn? t)))
+(defmethod annotated true
+  [annotation token] (annotated-fn annotation token))
+(defmethod annotated false
+  [annotation token] (annotated-fn annotation (exact token)))
 
 ; Matcher combinators
-
 (defn- list-match-of
   ([acc matchers s]
    (cond (empty? matchers) (mk-ast-state (mk-leaf acc) s)
@@ -166,6 +185,18 @@
 (defn repeated [matcher]
   "Returns a function that matches a matcher greedily."
   (fn [s] (repeated-match matcher s)))
+
+(defn merge-annotations
+  "Returns a function that matches/consumes a list of annotation matchers
+   and merges the annotations into a single map. Returns nil if there was
+   no match."
+  [& annotations]
+  (fn [s] (let [annotated-list (list-match-of annotations s)]
+            (cond (nil? annotated-list) nil
+              :else(mk-ast-state
+              (mk-leaf (reduce (fn [m1 m2] (merge m1 m2))
+                               (:tree annotated-list)))
+              (:rest annotated-list))))))
 
 ; Base matchers
 (defn space []
@@ -246,7 +277,7 @@
   (fn [s] (re-match-of pattern (reduce #(str %1 %2) s))))
 
 (defn test-suite []
-  (test-tap 24
+  (test-tap 28
             (is "foo" (mk-leaf ["foo" ()]))
             (is "foo" (mk-leaf '("foo" ())))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
@@ -324,5 +355,9 @@
                 ((ignore (exact "foo")) "foo bar"))
             (is nil
                 ((ignore (exact "foo")) "fo bar"))
+            (is (mk-ast-state {:foo "oof" :bar "rab"} ())
+                ((merge-annotations
+                  (annotated :foo (exact "oof"))
+                  (annotated :bar (exact "rab"))) "oofrab"))
             ))
 
