@@ -62,7 +62,7 @@
                               (cond (nil? match) nil
                                 :else (mk-ast-state (mk-leaf)
                                                    (:rest match))))))
-(defmulti ignore ifn?)
+(defmulti ignore fn?)
 (defmethod ignore true
   [token] (ignore-fn token))
 (defmethod ignore false
@@ -74,8 +74,8 @@
   [matcher] (fn [s] (let [match (matcher s)]
                               (cond (nil? match) nil
                                 :else (mk-ast-state (mk-leaf) 
-                                                   (seq s))))))
-(defmulti forward-match ifn? )
+                                                   s)))))
+(defmulti forward-match fn?)
 (defmethod forward-match true
   [token] (forward-match-fn token))
 (defmethod forward-match false
@@ -89,7 +89,7 @@
                       (cond (nil? match) (mk-ast-state (mk-leaf)
                                                        (seq s))
                         :else match))))
-(defmulti optional ifn?)
+(defmulti optional fn?)
 (defmethod optional true
   [token] (optional-fn token))
 (defmethod optional false
@@ -104,7 +104,7 @@
         (cond (nil? match) nil
           :else (mk-ast-state (mk-leaf (hash-map annotation (:tree match)))
                              (:rest match))))))
-(defmulti annotated (fn [annotation t] (ifn? t)))
+(defmulti annotated (fn [annotation t] (fn? t)))
 (defmethod annotated true
   [annotation token] (annotated-fn annotation token))
 (defmethod annotated false
@@ -186,6 +186,23 @@
   "Returns a function that matches a matcher greedily."
   (fn [s] (repeated-match matcher s)))
 
+(defn- assert-match-fn
+  ([asserts match]
+   (cond (empty? asserts) match
+     :else (let [assert1 (first asserts)
+                 matched (:tree match)
+                 result (assert1 matched)]
+             (cond (nil? result) nil
+               :else (recur (drop 1 asserts) match))))))
+
+(defn match-assert
+  "Returns a function that matches/consumes a matcher if
+   the matches passes certain assertions. "
+  [token & asserts]
+  (fn [s] (let [match (token s)]
+            (cond (nil? match) nil
+              :else (assert-match-fn asserts match)))))
+
 (defn merge-annotations
   "Returns a function that matches/consumes a list of annotation matchers
    and merges the annotations into a single map. Returns nil if there was
@@ -197,6 +214,35 @@
               (mk-leaf (reduce (fn [m1 m2] (merge m1 m2))
                                (:tree annotated-list)))
               (:rest annotated-list))))))
+
+; TODO(jwall): create some proper tests for this
+(defn- does-not-contain-maybe-fn
+  ([token s] (does-not-contain-maybe-fn "" token s))
+  ([acc token s]
+    (cond
+      (empty? s) (mk-ast-state (mk-leaf acc) ())
+      :else (let [sc (first s)
+                  s2 (drop 1 s)
+                  match? (token s)]
+              (cond
+                (nil? match?) (recur (str acc sc) token s2)
+                :else nil)))))
+(defmulti- does-not-contain-maybe (fn [token s] (fn? token)))
+(defmethod does-not-contain-maybe true
+  ([token s] (does-not-contain-maybe-fn token s)))
+(defmethod does-not-contain-maybe false
+  ([token s] (does-not-contain-maybe-fn (exact token) s)))
+(defn does-not-contain
+  "Returns a function that reads a token from a sequence.
+   Returns token and rest of seq if matched, nil if no match."
+  [token] (partial does-not-contain-maybe token))
+
+(defn merge-matches
+  "Returns a function that matches/consumes a list of
+   base matchers and concatenates them together into
+   one match. Returns nil if they don't all match."
+  [& matchers]
+  (fn [s] nil))
 
 ; Base matchers
 (defn space []
@@ -216,6 +262,7 @@
   (any (space) (tab) (crlf) (cr) (lf)))
 
 ; TODO(jwall): linefeed, tab, carriage return
+
 
 (defn- exact-token-maybe-fn
   ([token s] (exact-token-maybe-fn "" token s))
@@ -248,7 +295,7 @@
                      :else (mk-ast-state (mk-leaf [(mk-leaf (str acc))
                                                    (:tree token?)])
                               (:rest token?))))))
-(defmulti- until-token-maybe (fn [t s] (ifn? t)))
+(defmulti- until-token-maybe (fn [t s] (fn? t)))
 (defmethod until-token-maybe true
   [token s] (until-token-maybe-fn token s))
 (defmethod until-token-maybe false
@@ -258,7 +305,6 @@
    Returns portion of the sequence that matched and the rest. nil if no match."
   [token] (partial until-token-maybe token))
 
-; TODO(jwall): regex matcher function
 (defmulti- re-match-of (fn [p _]
                          (instance? java.util.regex.Pattern p)))
 (defmethod re-match-of true
@@ -274,7 +320,8 @@
    If there are groups then the final grouping is the token returned.
    The function returns nil if the regex does not match"
   [pattern]
-  (fn [s] (re-match-of pattern (reduce #(str %1 %2) s))))
+  (fn [s]
+    (re-match-of pattern (reduce #(str %1 %2) "" s))))
 
 (defn test-suite []
   (test-tap 28
@@ -286,6 +333,8 @@
                 ((exact \;) ";foo bar"))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 ((re-match #"foo") "foo bar"))
+            (is {:tree (mk-leaf "foo") :rest (seq " bar")}
+                ((re-match #"(foo)") (seq "foo bar")))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 ((re-match #"(foo)") "foo bar"))
             (is nil
@@ -347,10 +396,20 @@
                 ((optional (exact "foo")) "foo bar"))
             (is {:tree (mk-leaf) :rest (seq "fo bar")}
                 ((optional (exact "foo")) "fo bar"))
-            (is {:tree (mk-leaf) :rest (seq "foo bar")}
+            (is {:tree (mk-leaf) :rest "foo bar"}
                 ((forward-match (exact "foo")) "foo bar"))
+            (is {:tree (mk-leaf) :rest "foo bar"}
+                ((forward-match (re-match #"foo")) "foo bar"))
             (is nil
                 ((forward-match (exact "foo")) "fo bar"))
+            (is nil
+                ((forward-match (re-match #"(foo)")) "fo bar"))
+            (is {:tree (mk-leaf "foo ") :rest (seq "bar")}
+                ((until (forward-match (re-match #"^bar"))) "foo bar"))
+            (is {:tree (mk-leaf "foo ") :rest (seq "bar")}
+                ((until (forward-match (exact "bar"))) "foo bar"))
+            (is nil
+                ((until (forward-match (re-match #"^br"))) "foo bar"))
             (is {:tree (mk-leaf) :rest (seq (seq " bar"))}
                 ((ignore (exact "foo")) "foo bar"))
             (is nil
@@ -359,5 +418,7 @@
                 ((merge-annotations
                   (annotated :foo (exact "oof"))
                   (annotated :bar (exact "rab"))) "oofrab"))
+            (is nil
+                ((match-assert (exact "foo") (does-not-contain "foo")) "foo"))
             ))
 
