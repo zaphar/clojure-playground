@@ -19,14 +19,15 @@
 
 (def http-request-line (annotated :request-line
                                   (list-match
-                                    http-method
-                                    http-local-resource
-                                    http-version
+                                    (merge-annotations
+                                      http-method
+                                      http-local-resource
+                                      http-version)
                                     (ignore (re-match #" *\r\n")))))
 
 (def http-status-line
   (annotated :status-line
-             (list-match
+             (merge-annotations
                http-version
                http-status-code
                http-status-message)))
