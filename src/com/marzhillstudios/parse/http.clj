@@ -4,6 +4,8 @@
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
         [com.marzhillstudios.parse-utils]))
 
+(def terminator (any (crlf) (lf)))
+
 (def http-method (annotated :method (until (ignore (repeated (space))))))
 
 (def http-local-resource (annotated :resource (until (ignore (repeated (space))))))
@@ -15,7 +17,7 @@
                                  (re-match #" *([0-9][0-9][0-9]) *")))
 
 (def http-status-message (annotated :status-message
-                                    (until (ignore (crlf)))))
+                                    (until (ignore terminator))))
 
 (def http-request-line (annotated :request-line
                                   (list-match
@@ -23,7 +25,7 @@
                                       http-method
                                       http-local-resource
                                       http-version)
-                                    (ignore (re-match #" *\r\n")))))
+                                    (ignore (re-match #" *(\r\n|\n)")))))
 
 (def http-status-line
   (annotated :status-line
@@ -34,12 +36,20 @@
 
 (def http-initial-line (any http-status-line http-request-line))
 
+(def http-header-key
+  (annotated :key
+             (re-match #"^([^:\r\n]+):")))
+  
+(def http-header-value
+    (annotated :value
+               (any
+                 (until (forward-match http-header-key))
+                 (until (ignore terminator)))))
+
 (def http-header-line
   (merge-annotations
-    (annotated :key
-               (until (ignore \:)))
-    (annotated :value
-               (until (ignore (crlf))))))
+    http-header-key
+    http-header-value))
 
 (def http-headers
   (annotated :http-headers (repeated http-header-line)))
