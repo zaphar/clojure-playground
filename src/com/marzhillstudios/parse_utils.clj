@@ -120,9 +120,11 @@
 
 (defn- any-of
   ([matchers s]
-   (let [candidate ((first matchers) s)]
-     (cond (nil? candidate) (recur (drop 1 matchers) s)
-       :else candidate))))
+   (let [matcher (first matchers)]
+     (cond (nil? matcher) nil
+       :else (let [candidate (matcher s)]
+               (cond (nil? candidate) (recur (drop 1 matchers) s)
+                 :else candidate))))))
 (defn any
   "Returns a function that returns the first match of any of
   the provided matchers."
@@ -231,28 +233,34 @@
 (defmethod re-match-of true
   [pattern s] (let [match (re-find (re-matcher pattern s))]
                 (cond (nil? match) nil
-                  :else (mk-ast-state (mk-leaf (cond (seq? match) (drop 1 match)
-                                                 :else match))
+                  :else (mk-ast-state (mk-leaf
+                                        (cond (or (seq? match)
+                                                  (vector? match)) (last match)
+                                              :else match))
                            (seq (re-sub pattern "" s))))))
 (defn re-match
   "Returns a function that matches and consumes a regex defining the token.
    If there are groups then the final grouping is the token returned.
    The function returns nil if the regex does not match"
   [pattern]
-  (fn [s] (re-match-of pattern s)))
+  (fn [s] (re-match-of pattern (reduce #(str %1 %2) s))))
 
 (defn test-suite []
   (test-tap 24
-            (is ["foo"] (mk-leaf ["foo" ()]))
-            (is ["foo"] (mk-leaf '("foo" ())))
+            (is "foo" (mk-leaf ["foo" ()]))
+            (is "foo" (mk-leaf '("foo" ())))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 (exact-token-maybe "foo" "foo bar"))
             (is {:tree (mk-leaf ";") :rest (seq "foo bar")}
                 ((exact \;) ";foo bar"))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
                 ((re-match #"foo") "foo bar"))
+            (is {:tree (mk-leaf "foo") :rest (seq " bar")}
+                ((re-match #"(foo)") "foo bar"))
             (is nil
                 ((re-match #"foo") "fo bar"))
+            (is nil
+                ((re-match #"^foo") "barfoo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo ")
                                  (mk-leaf "bar")])
                  :rest ()}

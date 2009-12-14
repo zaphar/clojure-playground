@@ -9,11 +9,11 @@
 (def http-local-resource (annotated :resource (until (ignore (repeated (space))))))
 
 (def http-version (annotated :http-version
-                             (list-match (ignore (exact "HTTP/"))
-                                         (until (ignore (crlf))))))
+                             (re-match #" *HTTP/([0-9]\.[0-9]) *")))
 
 (def http-status-code (annotated :status-code
-                                 (re-match #"(\d{3})\s+")))
+                                 (re-match #" *([0-9][0-9][0-9]) *")))
+
 (def http-status-message (annotated :status-message
                                     (until (ignore (crlf)))))
 
@@ -21,7 +21,8 @@
                                   (list-match
                                     http-method
                                     http-local-resource
-                                    http-version)))
+                                    http-version
+                                    (ignore (re-match #" *\r\n")))))
 
 (def http-status-line
   (annotated :status-line
@@ -30,7 +31,7 @@
                http-status-code
                http-status-message)))
 
-(def http-initial-line (any http-request-line http-status-message))
+(def http-initial-line (any http-status-line http-request-line))
 
 (def http-grammar
   (list-match http-initial-line))
