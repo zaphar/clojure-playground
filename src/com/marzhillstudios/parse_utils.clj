@@ -261,6 +261,9 @@
 (defn whitespace []
   (any (space) (tab) (crlf) (cr) (lf)))
 
+(defn end []
+  (fn [s] (cond (empty? s) (mk-ast-state (mk-leaf) ()) :else nil)))
+
 ; TODO(jwall): linefeed, tab, carriage return
 
 
@@ -289,12 +292,18 @@
 (defn- until-token-maybe-fn
   ([token s] (until-token-maybe-fn "" token s))
   ([acc token s] (let [token? (token s)]
-                   (cond (empty? s) nil
+                   (cond (empty? s) (cond
+                                      (nil? token?) nil
+                                      :else (mk-ast-state
+                                              (mk-leaf [(mk-leaf (str acc))
+                                                        (:tree token?)])
+                                              (:rest token?)))
                      (nil? token?) (recur (str acc (first s))
                                           token (drop 1 s))
-                     :else (mk-ast-state (mk-leaf [(mk-leaf (str acc))
-                                                   (:tree token?)])
-                              (:rest token?))))))
+                     :else (mk-ast-state
+                             (mk-leaf [(mk-leaf (str acc))
+                                       (:tree token?)])
+                             (:rest token?))))))
 (defmulti- until-token-maybe (fn [t s] (fn? t)))
 (defmethod until-token-maybe true
   [token s] (until-token-maybe-fn token s))
@@ -324,7 +333,7 @@
     (re-match-of pattern (reduce #(str %1 %2) "" s))))
 
 (defn test-suite []
-  (test-tap 28
+  (test-tap 37
             (is "foo" (mk-leaf ["foo" ()]))
             (is "foo" (mk-leaf '("foo" ())))
             (is {:tree (mk-leaf "foo") :rest (seq " bar")}
@@ -420,5 +429,8 @@
                   (annotated :bar (exact "rab"))) "oofrab"))
             (is nil
                 ((match-assert (exact "foo") (does-not-contain "foo")) "foo"))
+            (is nil ((end) "foo"))
+            (is (mk-ast-state (mk-leaf) ()) ((end) ""))
+            (is (mk-ast-state (mk-leaf "foo") ()) ((until (end)) "foo"))
             ))
 

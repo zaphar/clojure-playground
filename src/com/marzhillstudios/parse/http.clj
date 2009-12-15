@@ -4,7 +4,7 @@
   (:use [com.marzhillstudios.test.tap :only [test-tap is ok]]
         [com.marzhillstudios.parse-utils]))
 
-(def terminator (any (crlf) (lf)))
+(def terminator (re-match #" *(\r\n|\n)"))
 
 (def http-method (annotated :method (until (ignore (repeated (space))))))
 
@@ -25,7 +25,7 @@
                                       http-method
                                       http-local-resource
                                       http-version)
-                                    (ignore (re-match #" *(\r\n|\n)")))))
+                                    (ignore terminator))))
 
 (def http-status-line
   (annotated :status-line
@@ -55,7 +55,8 @@
   (annotated :http-headers (repeated http-header-line)))
 
 (def http-grammar
-  (list-match http-initial-line http-headers))
+  (list-match http-initial-line http-headers
+              (optional (annotated :http-body (until (end))))))
 
 (defn parse-http [s]
   (apply-grammar http-grammar s))
