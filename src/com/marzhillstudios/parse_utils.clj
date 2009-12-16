@@ -27,6 +27,7 @@
               (seq? nm))(let [branch (filter #(not (= % ())) nm)]
                           (cond (= (count branch) 1) (first branch)
                             :else branch))
+          (nil? nm) ()
           :else nm)))
 
 (defstruct ast-state :tree :rest)
@@ -51,222 +52,8 @@
    using the provided parse-tree."
   [parse-tree] (fn [s] (parse-tree s)))
 
-; Grammar matcher constructors
-
-; Matcher modifiers
-(defn- ignore-fn
-  "Returns a function that matches/consumes the matchers
-   and returns empty list if it matched. The function returns nil
-   if the match fails."
-  [matcher] (fn [s] (let [match (matcher s)]
-                              (cond (nil? match) nil
-                                :else (mk-ast-state (mk-leaf)
-                                                   (:rest match))))))
-(defmulti ignore fn?)
-(defmethod ignore true
-  [token] (ignore-fn token))
-(defmethod ignore false
-  [token] (ignore-fn (exact token)))
-
-(defn- forward-match-fn
-  "Returns a function that does a forward match but does not consume
-   the matched tokens. The function will return nil if the match fails."
-  [matcher] (fn [s] (let [match (matcher s)]
-                              (cond (nil? match) nil
-                                :else (mk-ast-state (mk-leaf) 
-                                                   s)))))
-(defmulti forward-match fn?)
-(defmethod forward-match true
-  [token] (forward-match-fn token))
-(defmethod forward-match false
-  [token] (forward-match-fn (exact token)))
-
-(defn- optional-fn
-  "Returns a function that never returns nil. If provided matcher matches
-   then the function returns the match. If provided matcher does not match
-   then the function returns the empty list."
-  [matcher] (fn [s] (let [match (matcher s)]
-                      (cond (nil? match) (mk-ast-state (mk-leaf)
-                                                       (seq s))
-                        :else match))))
-(defmulti optional fn?)
-(defmethod optional true
-  [token] (optional-fn token))
-(defmethod optional false
-  [token] (optional-fn (exact token)))
-
-(defn annotated-fn
-  "Returns a function that annotates a provided base matcher. If the provided
-   matcher does not match then the function returns nil."
-  [annotation matcher]
-    (fn [s]
-      (let [match (matcher s)]
-        (cond (nil? match) nil
-          :else (mk-ast-state (mk-leaf (hash-map annotation (:tree match)))
-                             (:rest match))))))
-(defmulti annotated (fn [annotation t] (fn? t)))
-(defmethod annotated true
-  [annotation token] (annotated-fn annotation token))
-(defmethod annotated false
-  [annotation token] (annotated-fn annotation (exact token)))
-
-; Matcher combinators
-(defn- list-match-of
-  ([acc matchers s]
-   (cond (empty? matchers) (mk-ast-state (mk-leaf acc) s)
-     (empty? s) nil
-     :else (let [matcher (first matchers)
-                 token? (matcher s)]
-             (cond (nil? token?) nil
-               :else (recur (conj acc (:tree token?))
-                            (drop 1 matchers)
-                            (:rest token?))))))
-  ([matchers s] (list-match-of [] matchers s)))
-(defn list-match
-  "Returns a function that matches/consumes a list of matchers.
-   If entire list does not match the match fails and the function
-   returns nil."
-  [& l]
-  (fn [s] (list-match-of l s)))
-
-(defn- first-match-of [matchers s]
-  (some (fn [m] (m s)) matchers))
-(defn first-of
-  "Returns a function that matches consumes the first of the matchers
-   to match."
-  [& matchers]
-  (fn [s] (first-match-of matchers s)))
-
-(defn- any-of
-  ([matchers s]
-   (let [matcher (first matchers)]
-     (cond (nil? matcher) nil
-       :else (let [candidate (matcher s)]
-               (cond (nil? candidate) (recur (drop 1 matchers) s)
-                 :else candidate))))))
-(defn any
-  "Returns a function that returns the first match of any of
-  the provided matchers."
-  [& matchers] (fn [s] (any-of matchers s)))
-
-(defn- repeated-match-n
-  ([acc matcher n s]
-    (let [matched (matcher s)
-          cnt (inc (:count acc))]
-      (cond
-        (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
-        (= cnt n) (mk-ast-state (mk-leaf (conj (:tree acc)
-                                              (:tree matched)))
-                    (:rest matched))
-        :else (recur (mk-ast-state (conj (:tree acc) (:tree matched))
-                                  "")
-                          matcher n (:rest matched)))))
-  ([matcher n s]
-    (let [matched (matcher s)]
-      (cond (nil? matched) nil
-        :else (repeated-match-n (mk-ast-state [(:tree matched)] "" :count 1)
-                          matcher n (:rest matched))))))
-(defn repeated-n
-  "Returns a function that matches a matcher up to n times."
-  [matcher n] (fn [s] (repeated-match-n matcher n s)))
-
-(defn- repeated-match
-  ([acc matcher s]
-    (let [matched (matcher s)]
-      (cond (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
-        :else (recur (mk-ast-state (conj (:tree acc)
-                                        (:tree matched)) "")
-                     matcher (:rest matched)))))
-  ([matcher s]
-    (let [matched (matcher s)]
-      (cond (nil? matched) nil
-        :else (repeated-match (mk-ast-state [(:tree matched)] "")
-                          matcher (:rest matched))))))
-(defn repeated [matcher]
-  "Returns a function that matches a matcher greedily."
-  (fn [s] (repeated-match matcher s)))
-
-(defn- assert-match-fn
-  ([asserts match]
-   (cond (empty? asserts) match
-     :else (let [assert1 (first asserts)
-                 matched (:tree match)
-                 result (assert1 matched)]
-             (cond (nil? result) nil
-               :else (recur (drop 1 asserts) match))))))
-
-(defn match-assert
-  "Returns a function that matches/consumes a matcher if
-   the matches passes certain assertions. "
-  [token & asserts]
-  (fn [s] (let [match (token s)]
-            (cond (nil? match) nil
-              :else (assert-match-fn asserts match)))))
-
-(defn merge-annotations
-  "Returns a function that matches/consumes a list of annotation matchers
-   and merges the annotations into a single map. Returns nil if there was
-   no match."
-  [& annotations]
-  (fn [s] (let [annotated-list (list-match-of annotations s)]
-            (cond (nil? annotated-list) nil
-              :else(mk-ast-state
-              (mk-leaf (reduce (fn [m1 m2] (merge m1 m2))
-                               (:tree annotated-list)))
-              (:rest annotated-list))))))
-
-; TODO(jwall): create some proper tests for this
-(defn- does-not-contain-maybe-fn
-  ([token s] (does-not-contain-maybe-fn "" token s))
-  ([acc token s]
-    (cond
-      (empty? s) (mk-ast-state (mk-leaf acc) ())
-      :else (let [sc (first s)
-                  s2 (drop 1 s)
-                  match? (token s)]
-              (cond
-                (nil? match?) (recur (str acc sc) token s2)
-                :else nil)))))
-(defmulti- does-not-contain-maybe (fn [token s] (fn? token)))
-(defmethod does-not-contain-maybe true
-  ([token s] (does-not-contain-maybe-fn token s)))
-(defmethod does-not-contain-maybe false
-  ([token s] (does-not-contain-maybe-fn (exact token) s)))
-(defn does-not-contain
-  "Returns a function that reads a token from a sequence.
-   Returns token and rest of seq if matched, nil if no match."
-  [token] (partial does-not-contain-maybe token))
-
-(defn merge-matches
-  "Returns a function that matches/consumes a list of
-   base matchers and concatenates them together into
-   one match. Returns nil if they don't all match."
-  [& matchers]
-  (fn [s] nil))
 
 ; Base matchers
-(defn space []
-  "Returns a function that matches/consumes exactly one space."
-  (exact \space ))
-(defn tab []
-  (exact \tab))
-
-(defn cr []
-  (exact \return ))
-(defn lf []
-  (exact \newline))
-(defn crlf []
-  (list-match (cr) (lf)))
-
-(defn whitespace []
-  (any (space) (tab) (crlf) (cr) (lf)))
-
-(defn end []
-  (fn [s] (cond (empty? s) (mk-ast-state (mk-leaf) ()) :else nil)))
-
-; TODO(jwall): linefeed, tab, carriage return
-
-
 (defn- exact-token-maybe-fn
   ([token s] (exact-token-maybe-fn "" token s))
   ([acc token s]
@@ -329,8 +116,239 @@
    If there are groups then the final grouping is the token returned.
    The function returns nil if the regex does not match"
   [pattern]
-  (fn [s]
-    (re-match-of pattern (reduce #(str %1 %2) "" s))))
+  (let [pstring (.pattern pattern)
+        c (first pstring)]
+    (cond
+      (= \^ c)
+        (fn [s] (re-match-of pattern (reduce #(str %1 %2) "" s)))
+      :else
+        ; re-matchers should always match against the front of the string only.
+        (fn [s]
+          (re-match-of (re-pattern (str \^ pstring))
+                                   (reduce #(str %1 %2) "" s))))))
+
+; TODO(jwall): linefeed, tab, carriage return
+
+; Grammar matcher constructors
+
+; Matcher modifiers
+(defn- ignore-fn
+  "Returns a function that matches/consumes the matchers
+   and returns empty list if it matched. The function returns nil
+   if the match fails."
+  [matcher] (fn [s] (let [match (matcher s)]
+                              (cond (nil? match) nil
+                                :else (mk-ast-state (mk-leaf)
+                                                   (:rest match))))))
+(defmulti ignore fn?)
+(defmethod ignore true
+  [token] (ignore-fn token))
+(defmethod ignore false
+  [token] (ignore-fn (exact token)))
+
+(defn- forward-match-fn
+  "Returns a function that does a forward match but does not consume
+   the matched tokens. The function will return nil if the match fails."
+  [matcher] (fn [s] (let [match (matcher s)]
+                              (cond (nil? match) nil
+                                :else (mk-ast-state (mk-leaf) 
+                                                   s)))))
+(defmulti forward-match fn?)
+(defmethod forward-match true
+  [token] (forward-match-fn token))
+(defmethod forward-match false
+  [token] (forward-match-fn (exact token)))
+
+(defn- optional-fn
+  "Returns a function that never returns nil. If provided matcher matches
+   then the function returns the match. If provided matcher does not match
+   then the function returns the empty list."
+  [matcher] (fn [s] (let [match (matcher s)]
+                      (cond (nil? match) (mk-ast-state (mk-leaf)
+                                                       (concat (seq s) ()))
+                        :else match))))
+(defmulti optional fn?)
+(defmethod optional true
+  [token] (optional-fn token))
+(defmethod optional false
+  [token] (optional-fn (exact token)))
+
+(defn annotated-fn
+  "Returns a function that annotates a provided base matcher. If the provided
+   matcher does not match then the function returns nil."
+  [annotation matcher]
+    (fn [s]
+      (let [match (matcher s)]
+        (cond (nil? match) nil
+          :else (mk-ast-state (mk-leaf (hash-map annotation (:tree match)))
+                             (:rest match))))))
+(defmulti annotated (fn [annotation t] (fn? t)))
+(defmethod annotated true
+  [annotation token] (annotated-fn annotation token))
+(defmethod annotated false
+  [annotation token] (annotated-fn annotation (exact token)))
+
+; Matcher combinators
+(defn- list-match-of
+  ([acc matchers s]
+   (cond (empty? matchers) (mk-ast-state (mk-leaf acc) s)
+     :else (let [matcher (first matchers)
+                 token? (matcher s)]
+             (cond (nil? token?) nil
+               (empty? s) (cond
+                            (nil? token?) nil
+                            :else (mk-ast-state
+                                    (mk-leaf [(mk-leaf acc)
+                                              (:tree token?)])
+                          (:rest token?)))
+               :else (recur (conj acc (:tree token?))
+                            (drop 1 matchers)
+                            (:rest token?))))))
+  ([matchers s] (list-match-of [] matchers s)))
+(defn list-match
+  "Returns a function that matches/consumes a list of matchers.
+   If entire list does not match the match fails and the function
+   returns nil."
+  [& l]
+  (fn [s] (list-match-of l s)))
+
+(defn- first-match-of [matchers s]
+  (some (fn [m] (m s)) matchers))
+(defn first-of
+  "Returns a function that matches consumes the first of the matchers
+   to match."
+  [& matchers]
+  (fn [s] (first-match-of matchers s)))
+
+(defn- any-of
+  ([matchers s]
+   (let [matcher (first matchers)]
+     (cond (nil? matcher) nil
+       :else (let [candidate (matcher s)]
+               (cond (nil? candidate) (recur (drop 1 matchers) s)
+                 :else candidate))))))
+(defn any
+  "Returns a function that returns the first match of any of
+  the provided matchers."
+  [& matchers] (fn [s] (any-of matchers s)))
+
+(defn- repeated-match-n
+  ([acc matcher n s]
+    (let [matched (matcher s)
+          cnt (inc (:count acc))]
+      (cond
+        (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
+        (= cnt n) (mk-ast-state (mk-leaf (conj (:tree acc)
+                                              (:tree matched)))
+                    (:rest matched))
+        :else (recur (mk-ast-state (conj (:tree acc) (:tree matched))
+                                  "" :count cnt)
+                          matcher n (:rest matched)))))
+  ([matcher n s]
+    (let [matched (matcher s)]
+      (cond (nil? matched) nil
+        :else (repeated-match-n (mk-ast-state [(:tree matched)] "" :count 1)
+                          matcher n (:rest matched))))))
+(defn repeated-n
+  "Returns a function that matches a matcher up to n times."
+  [matcher n] (fn [s] (repeated-match-n matcher n s)))
+
+(defn- repeated-match
+  ([acc matcher s]
+    (let [matched (matcher s)]
+      (cond (nil? matched) (mk-ast-state (mk-leaf (:tree acc)) s)
+        :else (recur (mk-ast-state (conj (:tree acc)
+                                        (:tree matched)) "")
+                     matcher (:rest matched)))))
+  ([matcher s]
+    (let [matched (matcher s)]
+      (cond (nil? matched) (mk-ast-state (mk-leaf) s)
+        :else (repeated-match (mk-ast-state [(:tree matched)] "")
+                          matcher (:rest matched))))))
+(defn repeated [matcher]
+  "Returns a function that matches a matcher greedily. If the matcher
+   fails then it behaves the same as optional."
+  (fn [s] (repeated-match matcher s)))
+
+(defn- assert-match-fn
+  ([asserts match]
+   (cond (empty? asserts) match
+     :else (let [assert1 (first asserts)
+                 matched (:tree match)
+                 result (assert1 matched)]
+             (cond (nil? result) nil
+               :else (recur (drop 1 asserts) match))))))
+
+(defn match-assert
+  "Returns a function that matches/consumes a matcher if
+   the matches passes certain assertions. "
+  [token & asserts]
+  (fn [s] (let [match (token s)]
+            (cond (nil? match) nil
+              :else (assert-match-fn asserts match)))))
+
+(defn merge-annotations
+  "Returns a function that matches/consumes a list of annotation matchers
+   and merges the annotations into a single map. Returns nil if there was
+   no match."
+  [& annotations]
+  (fn [s] (let [annotated-list (list-match-of annotations s)]
+            (cond (nil? annotated-list) nil
+              :else(mk-ast-state
+              (mk-leaf (reduce (fn [m1 m2] (merge m1 m2))
+                               (:tree annotated-list)))
+              (:rest annotated-list))))))
+
+(defn- does-not-contain-maybe-fn
+  ([token s] (does-not-contain-maybe-fn "" token s))
+  ([acc token s]
+    (cond
+      (empty? s) (mk-ast-state (mk-leaf acc) ())
+      :else (let [sc (first s)
+                  s2 (drop 1 s)
+                  match? (token s)]
+              (cond
+                (nil? match?) (recur (str acc sc) token s2)
+                :else nil)))))
+(defmulti- does-not-contain-maybe (fn [token s] (fn? token)))
+(defmethod does-not-contain-maybe true
+  ([token s] (does-not-contain-maybe-fn token s)))
+(defmethod does-not-contain-maybe false
+  ([token s] (does-not-contain-maybe-fn (exact token) s)))
+(defn does-not-contain
+  "Returns a function that reads a token from a sequence.
+   Returns token and rest of seq if matched, nil if no match."
+  [token] (partial does-not-contain-maybe token))
+
+(defn merge-matches
+  "Returns a function that matches/consumes a list of
+   base matchers and concatenates them together into
+   one match. Returns nil if they don't all match."
+  [& matchers]
+  (fn [s] nil))
+
+; miscellany
+(defn space []
+  "Returns a function that matches/consumes exactly one space."
+  (exact \space ))
+(defn tab []
+  (exact \tab))
+
+(defn cr []
+  (exact \return ))
+(defn lf []
+  (exact \newline))
+(defn crlf []
+  (list-match (cr) (lf)))
+
+(defn whitespace []
+  (any (space) (tab) (crlf) (cr) (lf)))
+
+(defn end []
+  (fn [s] (cond (or (nil? s)
+                    (empty? s)) (mk-ast-state (mk-leaf) ())
+            :else nil)))
+
 
 (defn test-suite []
   (test-tap 37
@@ -358,6 +376,10 @@
                                  (mk-leaf "bar")])
                  :rest ()}
                 (until-token-maybe (exact "bar") "foo bar"))
+            (is {:tree (mk-leaf [(mk-leaf "foo ")
+                                 (mk-leaf "bar")])
+                 :rest nil}
+                ((until (re-match #"(bar)")) "foo bar"))
             (is {:tree (mk-leaf {:foo (mk-leaf "foo")})
                  :rest (seq " bar")}
                 ((annotated :foo (exact "foo")) "foo bar"))
@@ -377,6 +399,9 @@
                                  (mk-leaf "foo")])
                  :rest (seq " bar")}
                 (repeated-match (exact "foo") "foofoo bar"))
+            (is {:tree (mk-leaf [(mk-leaf "foo")])
+                 :rest (seq " bar")}
+                ((repeated (exact "foo")) "foo bar"))
             (is {:tree (mk-leaf [(mk-leaf "foo")
                                  (mk-leaf "foo")])
                  :rest (seq " bar")}
@@ -405,6 +430,8 @@
                 ((optional (exact "foo")) "foo bar"))
             (is {:tree (mk-leaf) :rest (seq "fo bar")}
                 ((optional (exact "foo")) "fo bar"))
+            (is {:tree (mk-leaf "fo") :rest (seq " bar")}
+                ((optional (repeated (exact "fo"))) "fo bar"))
             (is {:tree (mk-leaf) :rest "foo bar"}
                 ((forward-match (exact "foo")) "foo bar"))
             (is {:tree (mk-leaf) :rest "foo bar"}
