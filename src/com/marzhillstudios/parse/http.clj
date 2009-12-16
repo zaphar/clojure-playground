@@ -34,7 +34,9 @@
                http-status-code
                http-status-message)))
 
-(def http-initial-line (any http-status-line http-request-line))
+(def http-initial-line
+  (list-match
+    (any http-status-line http-request-line)))
 
 (def http-header-key
   (annotated :key
@@ -54,9 +56,14 @@
 (def http-headers
   (annotated :http-headers (repeated http-header-line)))
 
+(def http-meta (annotated :http-meta (list-match http-initial-line http-headers)))
+
+(def http-body (optional (annotated :http-body (until (end)))))
+
 (def http-grammar
-  (list-match http-initial-line http-headers
-              (optional (annotated :http-body (until (end))))))
+  (list-match
+    (repeated terminator)
+    http-meta http-body))
 
 (defn parse-http [s]
   (apply-grammar http-grammar s))
