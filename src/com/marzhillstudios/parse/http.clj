@@ -58,7 +58,8 @@
 
 (def http-meta (annotated :http-meta (list-match http-initial-line http-headers)))
 
-(def http-body (optional (annotated :http-body (until (end)))))
+(def http-body (list-match (ignore terminator)
+                           (annotated :http-body (until (end)))))
 
 (def http-grammar
   (list-match

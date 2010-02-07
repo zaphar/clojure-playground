@@ -20,6 +20,8 @@
      [clojure.contrib.str-utils :only [re-sub]]
      [com.marzhillstudios.util :only [defmulti-]]))
 
+; TODO(jwall): parse error handling
+
 (defn- mk-leaf
   ([] (mk-leaf ())) 
   ([nm] (cond
