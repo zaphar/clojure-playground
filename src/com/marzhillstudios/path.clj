@@ -4,9 +4,13 @@
   (:import (java.lang IllegalArgumentException))
   (:require [com.marzhillstudios.util :as util]
      [com.marzhillstudios.list.util :as lu]
+     [clojure.contrib.str-utils2 :as su]
      [clojure.contrib.core :as ccc]))
 
 (defn path-type [] ::path)
+
+(defn path-str
+  [path] (su/join "/" path))
 
 (defmulti absolute? type)
 (defmethod absolute? java.lang.String [s]
@@ -25,6 +29,18 @@
         c (first p)]
     (util/add-type ::path p)))
 
+(defmulti basename type)
+(defmethod basename java.lang.String
+  [path] (basename (mk-path path)))
+(defmethod basename (path-type)
+  [path] (last path))
+
+(defmulti dirname type)
+(defmethod dirname java.lang.String
+  [path] (dirname (mk-path path)))
+(defmethod dirname (path-type)
+  [path] (path-str (drop-last path)))
+
 (defmulti resolve-path #([(type %1) (type %2)]))
 (defmethod resolve-path [java.lang.String java.lang.String]
   [p anchor] (resolve-path (mk-path p) (mk-path anchor)))
@@ -42,7 +58,6 @@
             ; make a starter a path object and foldl across it
             (lu/foldl
               [] (fn [acc nxt]
-                   (println "processing: " nxt)
                    (let [result (cond (= nxt "..")
                                   (cond (>= (count acc) 1)
                                      (vec (drop-last acc))
@@ -50,7 +65,6 @@
                                                  "Malformed path")))
                                   (= nxt ".") acc 
                                   :else (conj acc nxt))]
-                     (println "built so far: " result)
                      result))
               rst))))
 
